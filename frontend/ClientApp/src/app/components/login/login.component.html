@@ -1,0 +1,61 @@
+<div class="login-container">
+  <div class="login-card">
+    <h2 class="login-title">Weather App Login</h2>
+    
+    <form (ngSubmit)="onSubmit()" #loginForm="ngForm" class="login-form">
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email"
+          [(ngModel)]="loginData.email"
+          required 
+          email
+          class="form-control"
+          placeholder="Enter your email"
+          (input)="clearError()"
+          [disabled]="isLoading"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password:</label>
+        <input 
+          type="password" 
+          id="password" 
+          name="password"
+          [(ngModel)]="loginData.password"
+          required 
+          minlength="6"
+          class="form-control"
+          placeholder="Enter your password"
+          (input)="clearError()"
+          [disabled]="isLoading"
+        >
+      </div>
+
+      <div class="error-message" *ngIf="errorMessage">
+        {{ errorMessage }}
+      </div>
+
+      <button 
+        type="submit" 
+        class="btn-login"
+        [disabled]="isLoading || loginForm.invalid"
+      >
+        <span *ngIf="isLoading" class="loading-spinner"></span>
+        {{ isLoading ? 'Signing in...' : 'Sign In' }}
+      </button>
+    </form>
+
+    <div class="login-help">
+      <p>Demo accounts:</p>
+      <ul>
+        <li><strong>Admin:</strong> admin&#64;weatherapp.local / Admin123!</li>
+        <li><strong>User:</strong> user&#64;weatherapp.local / User123!</li>
+        <li><strong>Guest:</strong> guest&#64;weatherapp.local / Guest123!</li>
+      </ul>
+    </div>
+  </div>
+</div>

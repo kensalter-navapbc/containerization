@@ -1,0 +1,10 @@
+{
+"SpaProxyServer": {
+"ServerUrl": "",
+"RedirectUrl": "",
+"LaunchCommand": "",
+"WorkingDirectory": "/Users/ken/Source/containerization/frontend/ClientApp/",
+"MaxTimeoutInSeconds": "120",
+"KeepRunning": "false"
+}
+}
