@@ -28,7 +28,7 @@ public class ApiProxyController : ControllerBase
     {
         try
         {
-            var backendUrl = _configuration["BackendApiUrl"] ?? "http://localhost:5237";
+            var backendUrl = _configuration["BackendApiUrl"] ?? "http://localhost:5000";
             var targetUrl = $"{backendUrl}/{catchAll}";
             
             // Include query string if present

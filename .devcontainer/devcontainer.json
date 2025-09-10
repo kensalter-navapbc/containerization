@@ -1,0 +1,50 @@
+{
+  "name": "Weather App Dev Container",
+  "dockerComposeFile": [
+    "../database/docker-compose.yml",
+    "docker-compose.dev.yml"
+  ],
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit",
+        "angular.ng-template",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next",
+        "ms-mssql.mssql",
+        "ms-vscode.powershell",
+        "editorconfig.editorconfig"
+      ],
+      "settings": {
+        "dotnet.server.useOmnisharp": false,
+        "extensions.ignoreRecommendations": false
+      }
+    }
+  },
+  "forwardPorts": [
+    1433,
+    5000,
+    5001,
+    4200
+  ],
+  "portsAttributes": {
+    "1433": {
+      "label": "SQL Server"
+    },
+    "5000": {
+      "label": "Backend HTTP"
+    },
+    "5001": {
+      "label": "Backend HTTPS"
+    },
+    "4200": {
+      "label": "Angular Dev Server"
+    }
+  },
+  "postCreateCommand": "dotnet restore && cd frontend/ClientApp && npm install",
+  "remoteUser": "vscode"
+}
