@@ -56,11 +56,13 @@ jobs:
           sleep 2
         done
     
-    - name: Initialize Database
+    - name: Create Database
       run: |
-        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "
-        CREATE DATABASE WeatherApp;
-        USE WeatherApp;
+        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "CREATE DATABASE WeatherApp;"
+    
+    - name: Create Table
+      run: |
+        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -d WeatherApp -Q "
         CREATE TABLE WeatherForecast (
           Id int IDENTITY(1,1) PRIMARY KEY,
           Date datetime2 NOT NULL,
@@ -156,11 +158,13 @@ jobs:
           sleep 2
         done
     
-    - name: Initialize Database with Sample Data
+    - name: Create Database
       run: |
-        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "
-        CREATE DATABASE WeatherApp;
-        USE WeatherApp;
+        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "CREATE DATABASE WeatherApp;"
+    
+    - name: Create Tables and Insert Sample Data
+      run: |
+        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -d WeatherApp -Q "
         CREATE TABLE WeatherForecast (
           Id int IDENTITY(1,1) PRIMARY KEY,
           Date datetime2 NOT NULL,
