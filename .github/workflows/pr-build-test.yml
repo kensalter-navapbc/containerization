@@ -1,0 +1,195 @@
+name: PR Build and Test
+
+on:
+  pull_request:
+    branches: [ main, dev ]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+
+jobs:
+  backend-test:
+    name: Backend Build and Test
+    runs-on: ubuntu-latest
+    
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/azure-sql-edge:latest
+        env:
+          SA_PASSWORD: 'YourStrong!Passw0rd'
+          ACCEPT_EULA: 'Y'
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q 'SELECT 1'"
+          --health-interval=10s
+          --health-timeout=3s
+          --health-retries=10
+          --health-start-period=10s
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+    
+    - name: Wait for SQL Server
+      run: |
+        for i in {1..30}; do
+          if docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "SELECT 1" > /dev/null 2>&1; then
+            echo "SQL Server is ready"
+            break
+          fi
+          echo "Waiting for SQL Server... ($i/30)"
+          sleep 2
+        done
+    
+    - name: Initialize Database
+      run: |
+        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "
+        CREATE DATABASE WeatherApp;
+        USE WeatherApp;
+        CREATE TABLE WeatherForecast (
+          Id int IDENTITY(1,1) PRIMARY KEY,
+          Date datetime2 NOT NULL,
+          TemperatureC int NOT NULL,
+          Summary nvarchar(max) NULL
+        );"
+    
+    - name: Test Backend
+      run: dotnet test --no-build --configuration Release --verbosity normal
+
+  frontend-test:
+    name: Frontend Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/ClientApp/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: frontend/ClientApp
+      run: npm ci
+    
+    - name: Build frontend
+      working-directory: frontend/ClientApp
+      run: npm run build
+    
+    - name: Test frontend
+      working-directory: frontend/ClientApp
+      run: npm test -- --watch=false --browsers=ChromeHeadless
+
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+    
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/azure-sql-edge:latest
+        env:
+          SA_PASSWORD: 'YourStrong!Passw0rd'
+          ACCEPT_EULA: 'Y'
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q 'SELECT 1'"
+          --health-interval=10s
+          --health-timeout=3s
+          --health-retries=10
+          --health-start-period=10s
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/ClientApp/package-lock.json
+    
+    - name: Restore .NET dependencies
+      run: dotnet restore
+    
+    - name: Build backend
+      run: dotnet build --no-restore --configuration Release
+    
+    - name: Install frontend dependencies
+      working-directory: frontend/ClientApp
+      run: npm ci
+    
+    - name: Build frontend
+      working-directory: frontend/ClientApp
+      run: npm run build
+    
+    - name: Wait for SQL Server
+      run: |
+        for i in {1..30}; do
+          if docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "SELECT 1" > /dev/null 2>&1; then
+            echo "SQL Server is ready"
+            break
+          fi
+          echo "Waiting for SQL Server... ($i/30)"
+          sleep 2
+        done
+    
+    - name: Initialize Database with Sample Data
+      run: |
+        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "
+        CREATE DATABASE WeatherApp;
+        USE WeatherApp;
+        CREATE TABLE WeatherForecast (
+          Id int IDENTITY(1,1) PRIMARY KEY,
+          Date datetime2 NOT NULL,
+          TemperatureC int NOT NULL,
+          Summary nvarchar(max) NULL
+        );
+        INSERT INTO WeatherForecast (Date, TemperatureC, Summary) VALUES 
+        ('2023-01-01', 5, 'Cool'),
+        ('2023-01-02', 12, 'Mild'),
+        ('2023-01-03', -3, 'Freezing');"
+    
+    - name: Start Backend API
+      working-directory: Backend
+      run: dotnet run &
+      env:
+        ASPNETCORE_ENVIRONMENT: Development
+    
+    - name: Wait for Backend API
+      run: |
+        for i in {1..30}; do
+          if curl -f http://localhost:5000/weatherforecast > /dev/null 2>&1; then
+            echo "Backend API is ready"
+            break
+          fi
+          echo "Waiting for Backend API... ($i/30)"
+          sleep 2
+        done
+    
+    - name: Test API Endpoints
+      run: |
+        echo "Testing WeatherForecast endpoint..."
+        curl -f http://localhost:5000/weatherforecast || exit 1
+        echo "✓ WeatherForecast endpoint is working"
