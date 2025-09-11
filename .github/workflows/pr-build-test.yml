@@ -70,6 +70,12 @@ jobs:
           Summary nvarchar(max) NULL
         );"
     
+    - name: Update Connection String for GitHub Actions
+      run: |
+        sed -i 's/weatherapp-database/localhost/g' Backend/appsettings.json
+        echo "Updated connection string:"
+        grep "DefaultConnection" Backend/appsettings.json
+    
     - name: Test Backend
       run: dotnet test Backend/Backend.csproj --no-build --configuration Release --verbosity normal
 
@@ -175,6 +181,12 @@ jobs:
         ('2023-01-01', 5, 'Cool'),
         ('2023-01-02', 12, 'Mild'),
         ('2023-01-03', -3, 'Freezing');"
+    
+    - name: Update Connection String for GitHub Actions  
+      run: |
+        sed -i 's/weatherapp-database/localhost/g' Backend/appsettings.json
+        echo "Updated connection string:"
+        grep "DefaultConnection" Backend/appsettings.json
     
     - name: Start Backend API
       working-directory: Backend
