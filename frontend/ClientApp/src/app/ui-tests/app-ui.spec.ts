@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { DebugElement } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
@@ -20,11 +20,13 @@ describe('AppComponent - UI Integration Tests', () => {
     const weatherServiceSpy = jasmine.createSpyObj('WeatherService', ['getWeatherForecast']);
 
     await TestBed.configureTestingModule({
-      imports: [AppComponent, HttpClientTestingModule],
-      providers: [
-        { provide: WeatherService, useValue: weatherServiceSpy }
-      ]
-    }).compileComponents();
+    imports: [AppComponent],
+    providers: [
+        { provide: WeatherService, useValue: weatherServiceSpy },
+        provideHttpClient(withInterceptorsFromDi()),
+        provideHttpClientTesting()
+    ]
+}).compileComponents();
 
     fixture = TestBed.createComponent(AppComponent);
     component = fixture.componentInstance;
@@ -374,3 +376,4 @@ describe('AppComponent - UI Integration Tests', () => {
 
 // Need to import 'from' for the promise-based observable test
 import { from } from 'rxjs';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';

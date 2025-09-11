@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError, delay } from 'rxjs';
 import { AppComponent } from '../app.component';
 import { WeatherService } from '../services/weather.service';
@@ -18,11 +18,13 @@ describe('User Workflow Tests', () => {
     const weatherServiceSpy = jasmine.createSpyObj('WeatherService', ['getWeatherForecast']);
 
     await TestBed.configureTestingModule({
-      imports: [AppComponent, HttpClientTestingModule],
-      providers: [
-        { provide: WeatherService, useValue: weatherServiceSpy }
-      ]
-    }).compileComponents();
+    imports: [AppComponent],
+    providers: [
+        { provide: WeatherService, useValue: weatherServiceSpy },
+        provideHttpClient(withInterceptorsFromDi()),
+        provideHttpClientTesting()
+    ]
+}).compileComponents();
 
     fixture = TestBed.createComponent(AppComponent);
     component = fixture.componentInstance;
@@ -360,3 +362,4 @@ describe('User Workflow Tests', () => {
 
 // Import needed for promise-based observable test
 import { from } from 'rxjs';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';

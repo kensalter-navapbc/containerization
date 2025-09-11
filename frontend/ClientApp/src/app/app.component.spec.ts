@@ -1,10 +1,11 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError, from } from 'rxjs';
 import { AppComponent } from './app.component';
 import { WeatherService } from './services/weather.service';
 import { WeatherForecast } from './models/weather-forecast';
 import { TestUtils, TEST_CONSTANTS } from './testing/test-utils';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 describe('AppComponent', () => {
   let component: AppComponent;
@@ -17,11 +18,13 @@ describe('AppComponent', () => {
     const weatherServiceSpy = jasmine.createSpyObj('WeatherService', ['getWeatherForecast']);
 
     await TestBed.configureTestingModule({
-      imports: [AppComponent, HttpClientTestingModule],
-      providers: [
-        { provide: WeatherService, useValue: weatherServiceSpy }
-      ]
-    }).compileComponents();
+    imports: [AppComponent],
+    providers: [
+        { provide: WeatherService, useValue: weatherServiceSpy },
+        provideHttpClient(withInterceptorsFromDi()),
+        provideHttpClientTesting()
+    ]
+}).compileComponents();
 
     fixture = TestBed.createComponent(AppComponent);
     component = fixture.componentInstance;

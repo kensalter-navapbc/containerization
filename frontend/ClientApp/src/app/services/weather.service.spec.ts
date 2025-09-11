@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { WeatherService } from './weather.service';
 import { WeatherForecast } from '../models/weather-forecast';
 import { TestUtils, TEST_CONSTANTS } from '../testing/test-utils';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 describe('WeatherService', () => {
   let service: WeatherService;
@@ -12,9 +13,9 @@ describe('WeatherService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
-      providers: [WeatherService]
-    });
+    imports: [],
+    providers: [WeatherService, provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+});
     service = TestBed.inject(WeatherService);
     httpMock = TestBed.inject(HttpTestingController);
   });
