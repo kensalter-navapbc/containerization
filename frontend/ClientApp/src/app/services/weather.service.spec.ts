@@ -83,7 +83,7 @@ describe('WeatherService', () => {
     service.getWeatherForecast().subscribe();
 
     const req = httpMock.expectOne(TEST_CONSTANTS.API_ENDPOINTS.WEATHER_FORECAST);
-    expect(req.request.url).toBe('/api/weatherforecast');
+    expect(req.request.url).toBe('api/weather/forecast');
     req.flush(mockWeatherData);
   });
 

@@ -110,7 +110,7 @@ export class TestUtils {
  */
 export const TEST_CONSTANTS = {
   API_ENDPOINTS: {
-    WEATHER_FORECAST: '/api/weatherforecast'
+    WEATHER_FORECAST: 'api/weather/forecast'
   },
   HTTP_STATUS: {
     OK: 200,

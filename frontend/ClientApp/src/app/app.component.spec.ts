@@ -113,8 +113,7 @@ describe('AppComponent', () => {
   });
 
   it('should render loading message when loading', () => {
-    // Override ngOnInit to prevent automatic service calls
-    spyOn(component, 'ngOnInit');
+    spyOn(component, 'loadWeatherData');
     weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
     
     component.loading = true;
@@ -128,7 +127,7 @@ describe('AppComponent', () => {
 
   it('should render error message when there is an error', () => {
     // Override ngOnInit to prevent automatic service calls
-    spyOn(component, 'ngOnInit');
+    spyOn(component, 'loadWeatherData');
     weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
     
     component.loading = false;
@@ -156,8 +155,7 @@ describe('AppComponent', () => {
   });
 
   it('should disable refresh button when loading', () => {
-    // Override ngOnInit to prevent automatic service calls
-    spyOn(component, 'ngOnInit');
+    spyOn(component, 'loadWeatherData');
     weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
     
     component.loading = true;

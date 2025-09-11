@@ -15,3 +15,82 @@ body {
 .app-container {
   min-height: 100vh;
 }
+
+.weather-card {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 8px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.weather-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.weather-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.refresh-btn {
+  background: #007cba;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.refresh-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #d32f2f;
+  background: rgb(248, 215, 218);
+  padding: 15px;
+  border-radius: 5px;
+  margin: 8px 0;
+}
+
+.loading {
+  color: #1976d2;
+  text-align: center;
+  padding: 20px;
+}
+
+.date {
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.temperature {
+  margin: 8px 0;
+}
+
+.celsius {
+  font-size: 18px;
+  color: #1976d2;
+}
+
+.fahrenheit {
+  font-size: 14px;
+  color: #666;
+  margin-left: 8px;
+}
+
+.summary {
+  color: #666;
+  font-style: italic;
+}

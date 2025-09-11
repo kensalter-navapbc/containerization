@@ -54,8 +54,8 @@ describe('AppComponent - UI Integration Tests', () => {
 
     it('should not show loading state initially', () => {
       // Prevent automatic loading
-      spyOn(component, 'ngOnInit');
       weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
+      component.loading = false;
       fixture.detectChanges();
 
       const loadingElement = compiled.querySelector('.loading');
@@ -65,8 +65,9 @@ describe('AppComponent - UI Integration Tests', () => {
 
   describe('Loading State UI', () => {
     it('should show loading message and disable button when loading', () => {
-      // Simulate loading state
-      spyOn(component, 'ngOnInit');
+      // Simulate loading state - prevent automatic loading
+      spyOn(component, 'loadWeatherData');
+      weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
       component.loading = true;
       component.error = '';
       component.weatherData = [];
@@ -81,7 +82,7 @@ describe('AppComponent - UI Integration Tests', () => {
     });
 
     it('should hide weather cards when loading', () => {
-      spyOn(component, 'ngOnInit');
+      spyOn(component, 'loadWeatherData');
       weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
       component.loading = true;
       component.error = '';
@@ -93,7 +94,7 @@ describe('AppComponent - UI Integration Tests', () => {
     });
 
     it('should show loading indicator with proper styling', () => {
-      spyOn(component, 'ngOnInit');
+      spyOn(component, 'loadWeatherData');
       weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
       component.loading = true;
       fixture.detectChanges();
@@ -184,7 +185,7 @@ describe('AppComponent - UI Integration Tests', () => {
     });
 
     it('should apply error styling', () => {
-      spyOn(component, 'ngOnInit');
+      spyOn(component, 'loadWeatherData');
       weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
       component.error = 'Test error message';
       component.loading = false;
@@ -264,7 +265,7 @@ describe('AppComponent - UI Integration Tests', () => {
     });
 
     it('should disable refresh button during loading', () => {
-      spyOn(component, 'ngOnInit');
+      spyOn(component, 'loadWeatherData');
       weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
       component.loading = true;
       fixture.detectChanges();
@@ -369,7 +370,8 @@ describe('AppComponent - UI Integration Tests', () => {
       refreshButton.click();
       refreshButton.click();
 
-      expect(component.loadWeatherData).toHaveBeenCalledTimes(3);
+      // Expect 4 calls: 1 from ngOnInit + 3 from button clicks
+      expect(component.loadWeatherData).toHaveBeenCalledTimes(4);
     });
   });
 });
