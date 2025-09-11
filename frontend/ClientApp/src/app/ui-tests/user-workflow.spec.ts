@@ -351,7 +351,6 @@ describe('User Workflow Tests', () => {
       expect(document.activeElement).toBe(refreshButton);
 
       // During loading, button becomes disabled but focus behavior is preserved
-      spyOn(component, 'ngOnInit');
       component.loading = true;
       fixture.detectChanges();
       

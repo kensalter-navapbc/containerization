@@ -95,7 +95,7 @@ describe('AppComponent - Visual Regression Tests', () => {
 
   describe('State Visual Consistency', () => {
     it('should show consistent loading state appearance', () => {
-      spyOn(component, 'ngOnInit');
+      spyOn(component, 'loadWeatherData');
       weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
       component.loading = true;
       component.error = '';
@@ -120,7 +120,7 @@ describe('AppComponent - Visual Regression Tests', () => {
     });
 
     it('should show consistent error state appearance', () => {
-      spyOn(component, 'ngOnInit');
+      spyOn(component, 'loadWeatherData');
       weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
       component.loading = false;
       component.error = 'API Error 500: Internal Server Error';
@@ -238,8 +238,9 @@ describe('AppComponent - Visual Regression Tests', () => {
         'Failed to connect to backend API. Make sure the backend is running on http://localhost:5079'
       ];
 
+      spyOn(component, 'loadWeatherData');
+      
       errorMessages.forEach(errorMessage => {
-        spyOn(component, 'ngOnInit');
         weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
         component.loading = false;
         component.error = errorMessage;
@@ -300,7 +301,7 @@ describe('AppComponent - Visual Regression Tests', () => {
     });
 
     it('should properly indicate disabled state visually', () => {
-      spyOn(component, 'ngOnInit');
+      spyOn(component, 'loadWeatherData');
       weatherService.getWeatherForecast.and.returnValue(of(mockWeatherData));
       component.loading = true;
       fixture.detectChanges();

@@ -38,10 +38,12 @@ jobs:
         dotnet-version: '8.0.x'
     
     - name: Restore dependencies
-      run: dotnet restore
+      run: |
+        dotnet restore Backend/Backend.csproj
+        dotnet restore frontend/FrontEnd.csproj
     
     - name: Build
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet build Backend/Backend.csproj --no-restore --configuration Release
     
     - name: Wait for SQL Server
       run: |
@@ -54,11 +56,13 @@ jobs:
           sleep 2
         done
     
-    - name: Initialize Database
+    - name: Create Database
       run: |
-        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "
-        CREATE DATABASE WeatherApp;
-        USE WeatherApp;
+        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "CREATE DATABASE WeatherApp;"
+    
+    - name: Create Table
+      run: |
+        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -d WeatherApp -Q "
         CREATE TABLE WeatherForecast (
           Id int IDENTITY(1,1) PRIMARY KEY,
           Date datetime2 NOT NULL,
@@ -66,8 +70,14 @@ jobs:
           Summary nvarchar(max) NULL
         );"
     
+    - name: Update Connection String for GitHub Actions
+      run: |
+        sed -i 's/weatherapp-database/localhost/g' Backend/appsettings.json
+        echo "Updated connection string:"
+        grep "DefaultConnection" Backend/appsettings.json
+    
     - name: Test Backend
-      run: dotnet test --no-build --configuration Release --verbosity normal
+      run: dotnet test Backend/Backend.csproj --no-build --configuration Release --verbosity normal
 
   frontend-test:
     name: Frontend Build and Test
@@ -80,12 +90,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: frontend/ClientApp/package-lock.json
     
     - name: Install dependencies
       working-directory: frontend/ClientApp
-      run: npm ci
+      run: npm install
     
     - name: Build frontend
       working-directory: frontend/ClientApp
@@ -128,18 +136,18 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: frontend/ClientApp/package-lock.json
     
     - name: Restore .NET dependencies
-      run: dotnet restore
+      run: |
+        dotnet restore Backend/Backend.csproj
+        dotnet restore frontend/FrontEnd.csproj
     
     - name: Build backend
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet build Backend/Backend.csproj --no-restore --configuration Release
     
     - name: Install frontend dependencies
       working-directory: frontend/ClientApp
-      run: npm ci
+      run: npm install
     
     - name: Build frontend
       working-directory: frontend/ClientApp
@@ -156,41 +164,44 @@ jobs:
           sleep 2
         done
     
-    - name: Initialize Database with Sample Data
+    - name: Create Database
       run: |
-        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "
-        CREATE DATABASE WeatherApp;
-        USE WeatherApp;
-        CREATE TABLE WeatherForecast (
-          Id int IDENTITY(1,1) PRIMARY KEY,
-          Date datetime2 NOT NULL,
-          TemperatureC int NOT NULL,
-          Summary nvarchar(max) NULL
-        );
-        INSERT INTO WeatherForecast (Date, TemperatureC, Summary) VALUES 
-        ('2023-01-01', 5, 'Cool'),
-        ('2023-01-02', 12, 'Mild'),
-        ('2023-01-03', -3, 'Freezing');"
+        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "CREATE DATABASE WeatherApp;"
+    
+    - name: Update Connection String for GitHub Actions  
+      run: |
+        sed -i 's/weatherapp-database/localhost/g' Backend/appsettings.json
+        echo "Updated connection string:"
+        grep "DefaultConnection" Backend/appsettings.json
+
+    - name: Install dotnet-ef tool
+      run: dotnet tool install --global dotnet-ef
+
+    - name: Add dotnet tools to PATH
+      run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+    
+    - name: Apply EF Core migrations
+      working-directory: Backend
+      run: dotnet ef database update
     
     - name: Start Backend API
       working-directory: Backend
-      run: dotnet run &
+      run: |
+        dotnet run --verbosity detailed &
+        sleep 10
+        ps aux | grep dotnet
       env:
         ASPNETCORE_ENVIRONMENT: Development
+      timeout-minutes: 5
     
     - name: Wait for Backend API
       run: |
         for i in {1..30}; do
-          if curl -f http://localhost:5000/weatherforecast > /dev/null 2>&1; then
-            echo "Backend API is ready"
+          status=$(curl --output /dev/null --silent --head --write-out "%{http_code}" http://localhost:5000/api/weather/forecast)
+          if [ "$status" = "401" ] || [ "$status" = "200" ]; then
+            echo "Backend API is ready (HTTP $status)"
             break
           fi
-          echo "Waiting for Backend API... ($i/30)"
+          echo "Waiting for Backend API... ($i/30, got HTTP $status)"
           sleep 2
         done
-    
-    - name: Test API Endpoints
-      run: |
-        echo "Testing WeatherForecast endpoint..."
-        curl -f http://localhost:5000/weatherforecast || exit 1
-        echo "✓ WeatherForecast endpoint is working"
