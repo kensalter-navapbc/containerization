@@ -173,6 +173,12 @@ jobs:
         sed -i 's/weatherapp-database/localhost/g' Backend/appsettings.json
         echo "Updated connection string:"
         grep "DefaultConnection" Backend/appsettings.json
+
+    - name: Install dotnet-ef tool
+      run: dotnet tool install --global dotnet-ef
+
+    - name: Add dotnet tools to PATH
+      run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
     
     - name: Apply EF Core migrations
       working-directory: Backend
