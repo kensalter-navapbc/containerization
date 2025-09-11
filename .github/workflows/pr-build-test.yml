@@ -38,10 +38,12 @@ jobs:
         dotnet-version: '8.0.x'
     
     - name: Restore dependencies
-      run: dotnet restore
+      run: |
+        dotnet restore Backend/Backend.csproj
+        dotnet restore frontend/FrontEnd.csproj
     
     - name: Build
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet build Backend/Backend.csproj --no-restore --configuration Release
     
     - name: Wait for SQL Server
       run: |
@@ -67,7 +69,7 @@ jobs:
         );"
     
     - name: Test Backend
-      run: dotnet test --no-build --configuration Release --verbosity normal
+      run: dotnet test Backend/Backend.csproj --no-build --configuration Release --verbosity normal
 
   frontend-test:
     name: Frontend Build and Test
@@ -81,7 +83,7 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: frontend/ClientApp/package-lock.json
+        cache-dependency-path: '**/package-lock.json'
     
     - name: Install dependencies
       working-directory: frontend/ClientApp
@@ -129,13 +131,15 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: frontend/ClientApp/package-lock.json
+        cache-dependency-path: '**/package-lock.json'
     
     - name: Restore .NET dependencies
-      run: dotnet restore
+      run: |
+        dotnet restore Backend/Backend.csproj
+        dotnet restore frontend/FrontEnd.csproj
     
     - name: Build backend
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet build Backend/Backend.csproj --no-restore --configuration Release
     
     - name: Install frontend dependencies
       working-directory: frontend/ClientApp
