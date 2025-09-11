@@ -1,0 +1,65 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Chrome against Angular",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:4200",
+      "webRoot": "${workspaceFolder}/frontend/ClientApp/src",
+      "sourceMaps": true,
+      "userDataDir": "${workspaceFolder}/.vscode/chrome-debug-user-data",
+      "runtimeArgs": ["--disable-web-security", "--disable-features=VizDisplayCompositor"]
+    },
+    {
+      "name": "Launch Chrome against .NET (with Angular proxy)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "https://localhost:5079",
+      "webRoot": "${workspaceFolder}/frontend/ClientApp/src",
+      "sourceMaps": true,
+      "userDataDir": "${workspaceFolder}/.vscode/chrome-debug-user-data-dotnet",
+      "runtimeArgs": ["--disable-web-security", "--disable-features=VizDisplayCompositor"]
+    },
+    {
+      "name": "Attach to Chrome",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9222,
+      "webRoot": "${workspaceFolder}/frontend/ClientApp/src",
+      "sourceMaps": true
+    },
+    {
+      "name": "Launch .NET Core",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/frontend/bin/Debug/net8.0/FrontEnd.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/frontend",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Launch .NET Core and Angular",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/frontend/bin/Debug/net8.0/FrontEnd.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/frontend",
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Launch .NET + Angular Debug",
+      "configurations": ["Launch .NET Core and Angular", "Launch Chrome against .NET (with Angular proxy)"],
+      "stopAll": true
+    }
+  ]
+}

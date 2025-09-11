@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  weatherapp-db:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: weatherapp-database
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong!Passw0rd
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - weatherapp_data:/var/opt/mssql
+    networks:
+      - weatherapp-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P YourStrong!Passw0rd -Q 'SELECT 1' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  weatherapp_data:
+    name: weatherapp_database_data
+
+networks:
+  weatherapp-network:
+    name: weatherapp-network
+    driver: bridge

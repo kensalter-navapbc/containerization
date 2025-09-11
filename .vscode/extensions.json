@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "ms-vscode.vscode-typescript-next",
+    "angular.ng-template",
+    "ms-dotnettools.csharp",
+    "ms-dotnettools.csdevkit",
+    "ms-vscode.vscode-json",
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode"
+  ]
+}

@@ -1,0 +1,64 @@
+<div class="dashboard-container">
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="nav-content">
+      <h1 class="app-title">🌤️ Weather App</h1>
+      
+      <div class="user-info" *ngIf="currentUser">
+        <div class="user-details">
+          <span class="user-name">{{ getUserDisplayName() }}</span>
+          <span class="role-badge" [ngClass]="getRoleBadgeClass()">
+            {{ currentUser.role }}
+          </span>
+        </div>
+        <button class="btn-logout" (click)="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="welcome-section">
+      <h2>Welcome back, {{ getUserDisplayName() }}! 👋</h2>
+      <p>Here's your weather forecast dashboard</p>
+    </div>
+
+    <!-- Weather Data Section -->
+    <div class="weather-section">
+      <h3>Weather Forecast</h3>
+      
+      <!-- Loading State -->
+      <div *ngIf="loading" class="loading-container">
+        <div class="loading-spinner"></div>
+        <p>Loading weather data...</p>
+      </div>
+
+      <!-- Error State -->
+      <div *ngIf="error" class="error-container">
+        <div class="error-message">
+          <strong>⚠️ Error:</strong> {{ error }}
+        </div>
+        <button class="btn-retry" (click)="loadWeatherData()">Retry</button>
+      </div>
+
+      <!-- Weather Cards -->
+      <div *ngIf="!loading && !error && weatherData.length > 0" class="weather-grid">
+        <div *ngFor="let forecast of weatherData" class="weather-card">
+          <div class="date">{{ forecast.date | date:'MMM d, y' }}</div>
+          <div class="temperature">
+            <span class="temp-c">{{ forecast.temperatureC }}°C</span>
+            <span class="temp-separator">/</span>
+            <span class="temp-f">{{ forecast.temperatureF }}°F</span>
+          </div>
+          <div class="summary">{{ forecast.summary }}</div>
+        </div>
+      </div>
+
+      <!-- No Data State -->
+      <div *ngIf="!loading && !error && weatherData.length === 0" class="no-data-container">
+        <p>No weather data available</p>
+        <button class="btn-retry" (click)="loadWeatherData()">Refresh</button>
+      </div>
+    </div>
+  </main>
+</div>
