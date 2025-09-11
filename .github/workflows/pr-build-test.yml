@@ -168,20 +168,6 @@ jobs:
       run: |
         docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q "CREATE DATABASE WeatherApp;"
     
-    - name: Create Tables and Insert Sample Data
-      run: |
-        docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/azure-sql-edge:latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -d WeatherApp -Q "
-        CREATE TABLE WeatherForecast (
-          Id int IDENTITY(1,1) PRIMARY KEY,
-          Date datetime2 NOT NULL,
-          TemperatureC int NOT NULL,
-          Summary nvarchar(max) NULL
-        );
-        INSERT INTO WeatherForecast (Date, TemperatureC, Summary) VALUES 
-        ('2023-01-01', 5, 'Cool'),
-        ('2023-01-02', 12, 'Mild'),
-        ('2023-01-03', -3, 'Freezing');"
-    
     - name: Update Connection String for GitHub Actions  
       run: |
         sed -i 's/weatherapp-database/localhost/g' Backend/appsettings.json
@@ -209,4 +195,5 @@ jobs:
       run: |
         echo "Testing WeatherForecast endpoint..."
         curl -f http://localhost:5000/api/weather/forecast || exit 1
+
         echo "✓ WeatherForecast endpoint is working"
