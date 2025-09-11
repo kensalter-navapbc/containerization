@@ -18,4 +18,5 @@ services:
 
 networks:
   weatherapp-network:
-    external: true
+    name: weatherapp-network
+    driver: bridge
