@@ -181,7 +181,7 @@ jobs:
     - name: Wait for Backend API
       run: |
         for i in {1..30}; do
-          if curl -f http://localhost:5000/weatherforecast > /dev/null 2>&1; then
+          if curl -f http://localhost:5000/api/weather/forecast > /dev/null 2>&1; then
             echo "Backend API is ready"
             break
           fi
@@ -192,5 +192,5 @@ jobs:
     - name: Test API Endpoints
       run: |
         echo "Testing WeatherForecast endpoint..."
-        curl -f http://localhost:5000/weatherforecast || exit 1
+        curl -f http://localhost:5000/api/weather/forecast || exit 1
         echo "✓ WeatherForecast endpoint is working"
