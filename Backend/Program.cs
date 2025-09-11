@@ -55,9 +55,26 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Add Entity Framework
+// Choose connection string based on environment
+var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
+                          Environment.GetEnvironmentVariable("CONTAINER") == "true";
+
+var connectionStringName = isRunningInContainer ? "ContainerConnection" : "DefaultConnection";
+var connectionString = builder.Configuration.GetConnectionString(connectionStringName) ?? 
+    "Server=localhost,1433;Database=WeatherApp;User Id=SA;Password=${SQL_SA_PASSWORD};TrustServerCertificate=true;";
+
+// Replace environment variable placeholders with actual values
+var sqlPassword = Environment.GetEnvironmentVariable("SQL_SA_PASSWORD") ?? 
+                 Environment.GetEnvironmentVariable("MSSQL_SA_PASSWORD") ?? 
+                 "YourStrong!Passw0rd";
+var sqlServer = Environment.GetEnvironmentVariable("SQL_SERVER_HOST") ?? 
+               (isRunningInContainer ? "weatherapp-database" : "localhost");
+
+connectionString = connectionString.Replace("${SQL_SA_PASSWORD}", sqlPassword);
+connectionString = connectionString.Replace("weatherapp-database", sqlServer).Replace("localhost", sqlServer);
+
 builder.Services.AddDbContext<WeatherContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ?? 
-        "Server=localhost,1433;Database=WeatherApp;User Id=SA;Password=YourStrong!Passw0rd;TrustServerCertificate=true;"));
+    options.UseSqlServer(connectionString));
 
 // Add Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -131,6 +148,9 @@ using (var scope = app.Services.CreateScope())
     try
     {
         logger.LogInformation("Checking database connection and applying migrations...");
+        logger.LogInformation("SQL Server connection: "+connectionString);
+
+
         
         var context = services.GetRequiredService<WeatherContext>();
         

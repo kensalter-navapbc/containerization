@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/azure-sql-edge:latest
 
 # Set environment variables
 ENV ACCEPT_EULA=1
-ENV MSSQL_SA_PASSWORD=YourStrong!Passw0rd
+ENV MSSQL_SA_PASSWORD=
 ENV MSSQL_PID=Developer
 
 # Switch to root to create directories and copy scripts
