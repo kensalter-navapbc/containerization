@@ -174,11 +174,19 @@ jobs:
         echo "Updated connection string:"
         grep "DefaultConnection" Backend/appsettings.json
     
+    - name: Apply EF Core migrations
+      working-directory: Backend
+      run: dotnet ef database update
+    
     - name: Start Backend API
       working-directory: Backend
-      run: dotnet run &
+      run: |
+        dotnet run --verbosity detailed &
+        sleep 10
+        ps aux | grep dotnet
       env:
         ASPNETCORE_ENVIRONMENT: Development
+      timeout-minutes: 5
     
     - name: Wait for Backend API
       run: |
