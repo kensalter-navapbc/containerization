@@ -260,6 +260,45 @@ jobs:
         docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }}
         docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:latest
 
+    - name: Verify Container Images Exist
+      run: |
+        echo "🔍 Verifying container images exist in registry..."
+        
+        # Check if database image exists
+        echo "Checking database image..."
+        if az acr repository show --name ${{ env.REGISTRY_NAME }} --image weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }} > /dev/null 2>&1; then
+          echo "✅ Database image exists"
+        else
+          echo "❌ Database image not found: weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }}"
+          echo "Available database images:"
+          az acr repository show-tags --name ${{ env.REGISTRY_NAME }} --repository weatherapp-database --orderby time_desc --top 5 || echo "No database images found"
+          exit 1
+        fi
+        
+        # Check if backend image exists
+        echo "Checking backend image..."
+        if az acr repository show --name ${{ env.REGISTRY_NAME }} --image weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }} > /dev/null 2>&1; then
+          echo "✅ Backend image exists"
+        else
+          echo "❌ Backend image not found: weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }}"
+          echo "Available backend images:"
+          az acr repository show-tags --name ${{ env.REGISTRY_NAME }} --repository weatherapp-backend --orderby time_desc --top 5 || echo "No backend images found"
+          exit 1
+        fi
+        
+        # Check if frontend image exists
+        echo "Checking frontend image..."
+        if az acr repository show --name ${{ env.REGISTRY_NAME }} --image weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }} > /dev/null 2>&1; then
+          echo "✅ Frontend image exists"
+        else
+          echo "❌ Frontend image not found: weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }}"
+          echo "Available frontend images:"
+          az acr repository show-tags --name ${{ env.REGISTRY_NAME }} --repository weatherapp-frontend --orderby time_desc --top 5 || echo "No frontend images found"
+          exit 1
+        fi
+        
+        echo "✅ All required images are available in the registry"
+
     - name: Create Container Apps Environment
       run: |
         echo "Checking if Container Apps environment exists..."
