@@ -408,7 +408,7 @@ jobs:
             --registry-username ${{ env.REGISTRY_NAME }} \
             --registry-password "$REGISTRY_PASSWORD" \
             --target-port 1433 \
-            --ingress external \
+            --ingress internal \
             --transport tcp \
             --min-replicas 1 \
             --max-replicas 1 \
