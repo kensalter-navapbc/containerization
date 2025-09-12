@@ -426,11 +426,12 @@ jobs:
       run: |
         echo "Deploying backend container app..."
         
-        # Get database FQDN for connection
-        DATABASE_FQDN=$(az containerapp show \
-          --name ${{ env.DATABASE_APP_NAME }} \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --query properties.configuration.ingress.fqdn -o tsv)
+        # For internal TCP, try using the container name directly instead of FQDN
+        # DATABASE_FQDN=$(az containerapp show \
+        #   --name ${{ env.DATABASE_APP_NAME }} \
+        #   --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+        #   --query properties.configuration.ingress.fqdn -o tsv)
+        DATABASE_FQDN=${{ env.DATABASE_APP_NAME }}
         
         # Check if container app exists and delete it to recreate fresh (avoids secret ref issues)
         if az containerapp show --name ${{ env.BACKEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
@@ -440,13 +441,13 @@ jobs:
         
         
         # Debug: Check if the secret is being passed correctly
-          echo "Secret value length: $(echo '${{ secrets.SQL_SA_PASSWORD }}' | wc -c)"
-          echo "Secret starts with: $(echo '${{ secrets.SQL_SA_PASSWORD }}' | head -c 10)..."
-          
-          # Get registry password safely
-          REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
-          
-          az containerapp create \
+        echo "Secret value length: $(echo '${{ secrets.SQL_SA_PASSWORD }}' | wc -c)"
+        echo "Secret starts with: $(echo '${{ secrets.SQL_SA_PASSWORD }}' | head -c 10)..."
+        
+        # Get registry password safely
+        REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
+        
+        az containerapp create \
             --name ${{ env.BACKEND_APP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
@@ -467,7 +468,7 @@ jobs:
               SQL_SA_PASSWORD="${{ secrets.SQL_SA_PASSWORD }}" \
               STARTUP_DELAY_SECONDS=30 \
               DEBUG_NETWORK=true
-        fi
+        echo "✅ Backend container app created successfully"
 
     - name: Deploy Frontend Container App
       run: |
