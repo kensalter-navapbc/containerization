@@ -154,10 +154,38 @@ using (var scope = app.Services.CreateScope())
         
         var context = services.GetRequiredService<WeatherContext>();
         
-        // Check if database exists
-        var canConnect = await context.Database.CanConnectAsync();
+        // Check if database exists with retry logic
+        var canConnect = false;
+        var maxRetries = 10;
+        var retryDelay = TimeSpan.FromSeconds(5);
         
-        if (!canConnect)
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                logger.LogInformation($"Attempting database connection (attempt {attempt}/{maxRetries})...");
+                canConnect = await context.Database.CanConnectAsync();
+                if (canConnect)
+                {
+                    logger.LogInformation("Database connection successful!");
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning($"Database connection attempt {attempt} failed: {ex.Message}");
+            }
+            
+            if (attempt < maxRetries)
+            {
+                logger.LogInformation($"Retrying in {retryDelay.TotalSeconds} seconds...");
+                await Task.Delay(retryDelay);
+                retryDelay = TimeSpan.FromSeconds(Math.Min(retryDelay.TotalSeconds * 2, 60)); // Exponential backoff, max 60s
+            }
+        }
+        
+        // Now that we have a connection, check if we need to create or migrate the database
+        if (!await context.Database.CanConnectAsync())
         {
             logger.LogInformation("Database does not exist, creating database with all tables...");
             await context.Database.EnsureCreatedAsync();

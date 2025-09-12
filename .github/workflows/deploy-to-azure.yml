@@ -157,12 +157,28 @@ jobs:
         cd database
         
         # Build and tag the database image
-        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }} .
+        echo "Building database Docker image..."
+        if ! docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }} .; then
+          echo "❌ Database Docker build failed!"
+          exit 1
+        fi
+        echo "✅ Database image built successfully"
+        
         docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:latest .
         
         # Push the images
-        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }}
-        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:latest
+        echo "Pushing database images to registry..."
+        if ! docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }}; then
+          echo "❌ Failed to push database image with version tag"
+          exit 1
+        fi
+        echo "✅ Database versioned image pushed successfully"
+        
+        if ! docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:latest; then
+          echo "❌ Failed to push database latest image"
+          exit 1
+        fi
+        echo "✅ Database latest image pushed successfully"
 
     - name: Build and Push Backend Container
       run: |
@@ -200,12 +216,28 @@ jobs:
         cd Backend
         
         # Build and tag the backend image
-        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }} .
+        echo "Building backend Docker image..."
+        if ! docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }} .; then
+          echo "❌ Backend Docker build failed!"
+          exit 1
+        fi
+        echo "✅ Backend image built successfully"
+        
         docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:latest .
         
         # Push the images
-        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }}
-        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:latest
+        echo "Pushing backend images to registry..."
+        if ! docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }}; then
+          echo "❌ Failed to push backend image with version tag"
+          exit 1
+        fi
+        echo "✅ Backend versioned image pushed successfully"
+        
+        if ! docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:latest; then
+          echo "❌ Failed to push backend latest image"
+          exit 1
+        fi
+        echo "✅ Backend latest image pushed successfully"
 
     - name: Build and Push Frontend Container
       run: |
@@ -253,12 +285,28 @@ jobs:
         cd frontend
         
         # Build and tag the frontend image
-        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }} .
+        echo "Building frontend Docker image..."
+        if ! docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }} .; then
+          echo "❌ Frontend Docker build failed!"
+          exit 1
+        fi
+        echo "✅ Frontend image built successfully"
+        
         docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:latest .
         
         # Push the images
-        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }}
-        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:latest
+        echo "Pushing frontend images to registry..."
+        if ! docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }}; then
+          echo "❌ Failed to push frontend image with version tag"
+          exit 1
+        fi
+        echo "✅ Frontend versioned image pushed successfully"
+        
+        if ! docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:latest; then
+          echo "❌ Failed to push frontend latest image"
+          exit 1
+        fi
+        echo "✅ Frontend latest image pushed successfully"
 
     - name: Verify Container Images Exist
       run: |
@@ -395,9 +443,14 @@ jobs:
               DOTNET_RUNNING_IN_CONTAINER=true \
               SQL_SERVER_HOST=$DATABASE_FQDN \
               SQL_SA_PASSWORD=secretref:sql-sa-password \
+              STARTUP_DELAY_SECONDS=30 \
             --secrets sql-sa-password="${{ secrets.SQL_SA_PASSWORD }}"
         else
           echo "Creating new backend container app..."
+          
+          # Debug: Check if the secret is being passed correctly
+          echo "Secret value length: $(echo '${{ secrets.SQL_SA_PASSWORD }}' | wc -c)"
+          echo "Secret starts with: $(echo '${{ secrets.SQL_SA_PASSWORD }}' | head -c 10)..."
           
           # Get registry password safely
           REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
@@ -421,6 +474,7 @@ jobs:
               DOTNET_RUNNING_IN_CONTAINER=true \
               SQL_SERVER_HOST=$DATABASE_FQDN \
               SQL_SA_PASSWORD=secretref:sql-sa-password \
+              STARTUP_DELAY_SECONDS=30 \
             --secrets sql-sa-password="${{ secrets.SQL_SA_PASSWORD }}"
         fi
 
