@@ -247,7 +247,7 @@ jobs:
         echo "Checking if Container Apps environment exists..."
         
         # Check if the extension is installed
-        az extension add --name containerapp --allow-preview-versions --yes
+        az extension add --name containerapp --upgrade
         
         # Register required providers
         az provider register --namespace Microsoft.App
