@@ -480,20 +480,18 @@ jobs:
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --query properties.configuration.ingress.fqdn -o tsv)
         
-        # Check if container app exists and update or create accordingly
+        # Check if container app exists and delete it to recreate fresh (ensures proper ingress config)
         if az containerapp show --name ${{ env.FRONTEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
-          echo "Updating existing frontend container app..."
-          az containerapp update \
-            --name ${{ env.FRONTEND_APP_NAME }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }}
-        else
-          echo "Creating new frontend container app..."
-          
-          # Get registry password safely
-          REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
-          
-          az containerapp create \
+          echo "Deleting existing frontend container app to recreate with correct ingress configuration..."
+          az containerapp delete --name ${{ env.FRONTEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --yes
+        fi
+        
+        echo "Creating new frontend container app..."
+        
+        # Get registry password safely
+        REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
+        
+        az containerapp create \
             --name ${{ env.FRONTEND_APP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
