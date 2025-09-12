@@ -408,7 +408,7 @@ jobs:
             --registry-username ${{ env.REGISTRY_NAME }} \
             --registry-password "$REGISTRY_PASSWORD" \
             --target-port 1433 \
-            --ingress internal \
+            --ingress external \
             --min-replicas 1 \
             --max-replicas 1 \
             --cpu 1.0 \
@@ -444,6 +444,7 @@ jobs:
               SQL_SERVER_HOST=$DATABASE_FQDN \
               SQL_SA_PASSWORD=secretref:sql-sa-password \
               STARTUP_DELAY_SECONDS=30 \
+              DEBUG_NETWORK=true \
             --secrets sql-sa-password="${{ secrets.SQL_SA_PASSWORD }}"
         else
           echo "Creating new backend container app..."
@@ -475,6 +476,7 @@ jobs:
               SQL_SERVER_HOST=$DATABASE_FQDN \
               SQL_SA_PASSWORD=secretref:sql-sa-password \
               STARTUP_DELAY_SECONDS=30 \
+              DEBUG_NETWORK=true \
             --secrets sql-sa-password="${{ secrets.SQL_SA_PASSWORD }}"
         fi
 

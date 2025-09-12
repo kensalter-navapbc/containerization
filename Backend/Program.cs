@@ -149,6 +149,42 @@ using (var scope = app.Services.CreateScope())
     {
         logger.LogInformation("Checking database connection and applying migrations...");
         logger.LogInformation("SQL Server connection: "+connectionString);
+        
+        // Network debugging
+        if (Environment.GetEnvironmentVariable("DEBUG_NETWORK") == "true")
+        {
+            logger.LogInformation("=== Network Debug Information ===");
+            logger.LogInformation($"SQL_SERVER_HOST: {Environment.GetEnvironmentVariable("SQL_SERVER_HOST")}");
+            logger.LogInformation($"DOTNET_RUNNING_IN_CONTAINER: {Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER")}");
+            
+            // Try to resolve DNS
+            try
+            {
+                var host = Environment.GetEnvironmentVariable("SQL_SERVER_HOST");
+                var addresses = await System.Net.Dns.GetHostAddressesAsync(host);
+                logger.LogInformation($"DNS resolution for {host}: {string.Join(", ", addresses.Select(a => a.ToString()))}");
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning($"DNS resolution failed: {ex.Message}");
+            }
+            
+            // Try basic TCP connection test
+            try
+            {
+                using var tcpClient = new System.Net.Sockets.TcpClient();
+                var host = Environment.GetEnvironmentVariable("SQL_SERVER_HOST");
+                await tcpClient.ConnectAsync(host, 1433);
+                logger.LogInformation($"TCP connection to {host}:1433 successful");
+                tcpClient.Close();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning($"TCP connection test failed: {ex.Message}");
+            }
+            
+            logger.LogInformation("=== End Network Debug ===");
+        }
 
 
         
