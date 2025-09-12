@@ -214,7 +214,7 @@ jobs:
       run: |
         for i in {1..30}; do
           status=$(curl --output /dev/null --silent --head --write-out "%{http_code}" http://localhost:5000/api/weather/forecast)
-          if [ "$status" = "401" ] || [ "$status" = "200" ]; then
+          if [ "$status" = "401" ] || [ "$status" = "405" ] || [ "$status" = "200" ]; then
             echo "Backend API is ready (HTTP $status)"
             break
           fi
