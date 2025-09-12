@@ -409,6 +409,7 @@ jobs:
             --registry-password "$REGISTRY_PASSWORD" \
             --target-port 1433 \
             --ingress external \
+            --transport tcp \
             --min-replicas 1 \
             --max-replicas 1 \
             --cpu 1.0 \
@@ -442,10 +443,9 @@ jobs:
               ASPNETCORE_ENVIRONMENT=Production \
               DOTNET_RUNNING_IN_CONTAINER=true \
               SQL_SERVER_HOST=$DATABASE_FQDN \
-              SQL_SA_PASSWORD=secretref:sql-sa-password \
+              SQL_SA_PASSWORD="${{ secrets.SQL_SA_PASSWORD }}" \
               STARTUP_DELAY_SECONDS=30 \
-              DEBUG_NETWORK=true \
-            --secrets sql-sa-password="${{ secrets.SQL_SA_PASSWORD }}"
+              DEBUG_NETWORK=true
         else
           echo "Creating new backend container app..."
           
@@ -474,10 +474,9 @@ jobs:
               ASPNETCORE_ENVIRONMENT=Production \
               DOTNET_RUNNING_IN_CONTAINER=true \
               SQL_SERVER_HOST=$DATABASE_FQDN \
-              SQL_SA_PASSWORD=secretref:sql-sa-password \
+              SQL_SA_PASSWORD="${{ secrets.SQL_SA_PASSWORD }}" \
               STARTUP_DELAY_SECONDS=30 \
-              DEBUG_NETWORK=true \
-            --secrets sql-sa-password="${{ secrets.SQL_SA_PASSWORD }}"
+              DEBUG_NETWORK=true
         fi
 
     - name: Deploy Frontend Container App
