@@ -54,11 +54,15 @@ jobs:
         
         # Set version suffix based on environment
         if [ "${{ github.event.inputs.environment }}" == "staging" ]; then
-          VERSION_SUFFIX="-${{ steps.nbgv.outputs.SemVer2 }}"
+          # Sanitize version for resource names (replace dots, dashes, and other special chars with empty string)
+          CLEAN_VERSION=$(echo "${{ steps.nbgv.outputs.SemVer2 }}" | sed 's/[^a-zA-Z0-9]//g')
+          VERSION_SUFFIX="-v$CLEAN_VERSION"
           echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> $GITHUB_ENV
+          echo "CLEAN_VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
         else
           VERSION_SUFFIX=""
           echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> $GITHUB_ENV
+          echo "CLEAN_VERSION=" >> $GITHUB_ENV
         fi
         
         # Set resource names with version suffix for staging
@@ -74,6 +78,7 @@ jobs:
         echo "📋 Deployment Configuration:"
         echo "Environment: ${{ github.event.inputs.environment }}"
         echo "Version: ${{ steps.nbgv.outputs.SemVer2 }}"
+        echo "Clean Version: $CLEAN_VERSION"
         echo "Resource Group: weatherapp-${{ github.event.inputs.environment }}-rg$VERSION_SUFFIX"
 
     - name: Setup Node.js
