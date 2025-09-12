@@ -508,7 +508,7 @@ jobs:
             --env-vars \
               ASPNETCORE_ENVIRONMENT=Production \
               BACKEND_API_URL=https://$BACKEND_FQDN
-        fi
+        echo "✅ Frontend container app created successfully"
 
     - name: Verify Container Apps Health
       run: |
