@@ -88,19 +88,33 @@ jobs:
 
     - name: Create Resource Group
       run: |
-        echo "Creating resource group ${{ env.AZURE_RESOURCE_GROUP }}..."
-        az group create \
-          --name ${{ env.AZURE_RESOURCE_GROUP }} \
-          --location ${{ env.AZURE_LOCATION }}
+        echo "Checking if resource group exists..."
+        
+        # Check if resource group exists
+        if az group show --name ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
+          echo "Resource group ${{ env.AZURE_RESOURCE_GROUP }} already exists"
+        else
+          echo "Creating resource group ${{ env.AZURE_RESOURCE_GROUP }}..."
+          az group create \
+            --name ${{ env.AZURE_RESOURCE_GROUP }} \
+            --location ${{ env.AZURE_LOCATION }}
+        fi
 
     - name: Create Azure Container Registry
       run: |
-        echo "Creating container registry..."
-        az acr create \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --name ${{ env.REGISTRY_NAME }} \
-          --sku Basic \
-          --admin-enabled true
+        echo "Checking if container registry exists..."
+        
+        # Check if registry exists
+        if az acr show --name ${{ env.REGISTRY_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
+          echo "Container registry ${{ env.REGISTRY_NAME }} already exists"
+        else
+          echo "Creating container registry ${{ env.REGISTRY_NAME }}..."
+          az acr create \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.REGISTRY_NAME }} \
+            --sku Basic \
+            --admin-enabled true
+        fi
         
         # Get registry login server
         echo "REGISTRY_LOGIN_SERVER=$(az acr show --name ${{ env.REGISTRY_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query loginServer --output tsv)" >> $GITHUB_ENV
@@ -214,7 +228,7 @@ jobs:
 
     - name: Create Container Apps Environment
       run: |
-        echo "Creating Container Apps environment..."
+        echo "Checking if Container Apps environment exists..."
         
         # Check if the extension is installed
         az extension add --name containerapp --allow-preview-versions --yes
@@ -223,17 +237,32 @@ jobs:
         az provider register --namespace Microsoft.App
         az provider register --namespace Microsoft.OperationalInsights
         
-        # Create the Container Apps environment
-        az containerapp env create \
-          --name ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --location ${{ env.AZURE_LOCATION }}
+        # Check if environment exists
+        if az containerapp env show --name ${{ env.CONTAINER_APPS_ENVIRONMENT }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
+          echo "Container Apps environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} already exists"
+        else
+          echo "Creating Container Apps environment..."
+          # Create the Container Apps environment
+          az containerapp env create \
+            --name ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --location ${{ env.AZURE_LOCATION }}
+        fi
 
     - name: Deploy Database Container App
       run: |
         echo "Deploying database container app..."
         
-        az containerapp create \
+        # Check if container app exists and update or create accordingly
+        if az containerapp show --name ${{ env.DATABASE_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
+          echo "Updating existing database container app..."
+          az containerapp update \
+            --name ${{ env.DATABASE_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }}
+        else
+          echo "Creating new database container app..."
+          az containerapp create \
           --name ${{ env.DATABASE_APP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
@@ -252,6 +281,7 @@ jobs:
             MSSQL_SA_PASSWORD=secretref:sql-sa-password \
             MSSQL_PID=Developer \
           --secrets sql-sa-password=${{ secrets.SQL_SA_PASSWORD }}
+        fi
 
     - name: Deploy Backend Container App
       run: |
@@ -263,7 +293,16 @@ jobs:
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --query properties.configuration.ingress.fqdn -o tsv)
         
-        az containerapp create \
+        # Check if container app exists and update or create accordingly
+        if az containerapp show --name ${{ env.BACKEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
+          echo "Updating existing backend container app..."
+          az containerapp update \
+            --name ${{ env.BACKEND_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }}
+        else
+          echo "Creating new backend container app..."
+          az containerapp create \
           --name ${{ env.BACKEND_APP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
@@ -283,6 +322,7 @@ jobs:
             SQL_SERVER_HOST=$DATABASE_FQDN \
             SQL_SA_PASSWORD=secretref:sql-sa-password \
           --secrets sql-sa-password=${{ secrets.SQL_SA_PASSWORD }}
+        fi
 
     - name: Deploy Frontend Container App
       run: |
@@ -294,7 +334,16 @@ jobs:
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --query properties.configuration.ingress.fqdn -o tsv)
         
-        az containerapp create \
+        # Check if container app exists and update or create accordingly
+        if az containerapp show --name ${{ env.FRONTEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
+          echo "Updating existing frontend container app..."
+          az containerapp update \
+            --name ${{ env.FRONTEND_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }}
+        else
+          echo "Creating new frontend container app..."
+          az containerapp create \
           --name ${{ env.FRONTEND_APP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
@@ -311,6 +360,7 @@ jobs:
           --env-vars \
             ASPNETCORE_ENVIRONMENT=Production \
             BACKEND_API_URL=https://$BACKEND_FQDN
+        fi
 
     - name: Display Deployment Information
       run: |
