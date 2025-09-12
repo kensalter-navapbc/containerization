@@ -108,31 +108,44 @@ jobs:
     - name: Create Azure Container Registry
       run: |
         echo "Checking if container registry name is available..."
+        echo "Registry name: ${{ env.REGISTRY_NAME }}"
+        echo "Resource group: ${{ env.AZURE_RESOURCE_GROUP }}"
         
         # Check if registry name is available globally
-        if az acr check-name --name ${{ env.REGISTRY_NAME }} --query nameAvailable -o tsv | grep -q "true"; then
+        NAME_CHECK=$(az acr check-name --name ${{ env.REGISTRY_NAME }} --query nameAvailable -o tsv)
+        echo "Name availability check result: $NAME_CHECK"
+        
+        if [ "$NAME_CHECK" = "true" ]; then
           echo "Creating container registry ${{ env.REGISTRY_NAME }}..."
           az acr create \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.REGISTRY_NAME }} \
             --sku Basic \
             --admin-enabled true
+          echo "✅ Registry created successfully"
         else
           echo "Container registry name ${{ env.REGISTRY_NAME }} is already in use"
           # Try to find the existing registry
-          EXISTING_RG=$(az acr list --query "[?name=='${{ env.REGISTRY_NAME }}'].resourceGroup" -o tsv)
+          EXISTING_RG=$(az acr list --query "[?name=='${{ env.REGISTRY_NAME }}'].resourceGroup" -o tsv 2>/dev/null || echo "")
           if [ -n "$EXISTING_RG" ]; then
             echo "Found existing registry in resource group: $EXISTING_RG"
-            # Update the resource group environment variable to use the existing one
-            echo "AZURE_RESOURCE_GROUP=$EXISTING_RG" >> $GITHUB_ENV
+            echo "Using existing registry instead of creating new one"
           else
             echo "ERROR: Registry name is taken but not accessible to this subscription"
+            echo "Available registries in subscription:"
+            az acr list --query "[].name" -o table
             exit 1
           fi
         fi
         
-        # Get registry login server (use updated resource group if changed)
-        echo "REGISTRY_LOGIN_SERVER=$(az acr show --name ${{ env.REGISTRY_NAME }} --query loginServer --output tsv)" >> $GITHUB_ENV
+        # Get registry login server
+        REGISTRY_SERVER=$(az acr show --name ${{ env.REGISTRY_NAME }} --query loginServer --output tsv 2>/dev/null || echo "")
+        if [ -z "$REGISTRY_SERVER" ]; then
+          echo "ERROR: Could not get registry login server"
+          exit 1
+        fi
+        echo "REGISTRY_LOGIN_SERVER=$REGISTRY_SERVER" >> $GITHUB_ENV
+        echo "Registry login server: $REGISTRY_SERVER"
 
     - name: Login to Azure Container Registry
       run: |
@@ -273,6 +286,10 @@ jobs:
     - name: Deploy Database Container App
       run: |
         echo "Deploying database container app..."
+        echo "App name: ${{ env.DATABASE_APP_NAME }}"
+        echo "Resource group: ${{ env.AZURE_RESOURCE_GROUP }}"
+        echo "Environment: ${{ env.CONTAINER_APPS_ENVIRONMENT }}"
+        echo "Image: ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }}"
         
         # Check if container app exists and update or create accordingly
         if az containerapp show --name ${{ env.DATABASE_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
@@ -281,12 +298,20 @@ jobs:
             --name ${{ env.DATABASE_APP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }}
+          echo "✅ Database container app updated"
         else
           echo "Creating new database container app..."
           
           # Get registry password safely
+          echo "Getting registry credentials..."
           REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
+          if [ -z "$REGISTRY_PASSWORD" ]; then
+            echo "ERROR: Could not get registry password"
+            exit 1
+          fi
+          echo "✅ Registry credentials obtained"
           
+          echo "Creating container app..."
           az containerapp create \
             --name ${{ env.DATABASE_APP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
@@ -306,6 +331,7 @@ jobs:
               MSSQL_SA_PASSWORD=secretref:sql-sa-password \
               MSSQL_PID=Developer \
             --secrets sql-sa-password="${{ secrets.SQL_SA_PASSWORD }}"
+          echo "✅ Database container app created successfully"
         fi
 
     - name: Deploy Backend Container App
@@ -395,6 +421,67 @@ jobs:
               BACKEND_API_URL=https://$BACKEND_FQDN
         fi
 
+    - name: Verify Container Apps Health
+      run: |
+        echo "🔍 Checking container app health..."
+        echo "=================================="
+        
+        # Check database container app
+        echo "Database Container App Status:"
+        DB_STATUS=$(az containerapp show --name ${{ env.DATABASE_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv 2>/dev/null || echo "ERROR")
+        echo "  Status: $DB_STATUS"
+        
+        if [ "$DB_STATUS" != "Running" ]; then
+          echo "  ❌ Database container is not running"
+          echo "  Checking logs..."
+          az containerapp logs show --name ${{ env.DATABASE_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --tail 50 || echo "Could not get logs"
+        else
+          echo "  ✅ Database container is running"
+        fi
+        
+        # Check backend container app
+        echo "Backend Container App Status:"
+        BACKEND_STATUS=$(az containerapp show --name ${{ env.BACKEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv 2>/dev/null || echo "ERROR")
+        echo "  Status: $BACKEND_STATUS"
+        
+        if [ "$BACKEND_STATUS" != "Running" ]; then
+          echo "  ❌ Backend container is not running"
+          echo "  Checking logs..."
+          az containerapp logs show --name ${{ env.BACKEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --tail 50 || echo "Could not get logs"
+        else
+          echo "  ✅ Backend container is running"
+        fi
+        
+        # Check frontend container app
+        echo "Frontend Container App Status:"
+        FRONTEND_STATUS=$(az containerapp show --name ${{ env.FRONTEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv 2>/dev/null || echo "ERROR")
+        echo "  Status: $FRONTEND_STATUS"
+        
+        if [ "$FRONTEND_STATUS" != "Running" ]; then
+          echo "  ❌ Frontend container is not running"
+          echo "  Checking logs..."
+          az containerapp logs show --name ${{ env.FRONTEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --tail 50 || echo "Could not get logs"
+        else
+          echo "  ✅ Frontend container is running"
+        fi
+        
+        # Wait for apps to be ready
+        echo ""
+        echo "⏳ Waiting for containers to be ready (up to 5 minutes)..."
+        for i in {1..30}; do
+          DB_STATUS=$(az containerapp show --name ${{ env.DATABASE_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv 2>/dev/null || echo "ERROR")
+          BACKEND_STATUS=$(az containerapp show --name ${{ env.BACKEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv 2>/dev/null || echo "ERROR")
+          FRONTEND_STATUS=$(az containerapp show --name ${{ env.FRONTEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv 2>/dev/null || echo "ERROR")
+          
+          if [ "$DB_STATUS" = "Running" ] && [ "$BACKEND_STATUS" = "Running" ] && [ "$FRONTEND_STATUS" = "Running" ]; then
+            echo "✅ All containers are running!"
+            break
+          fi
+          
+          echo "  Attempt $i/30 - DB: $DB_STATUS, Backend: $BACKEND_STATUS, Frontend: $FRONTEND_STATUS"
+          sleep 10
+        done
+
     - name: Display Deployment Information
       run: |
         echo "🎉 Deployment completed successfully!"
@@ -418,6 +505,32 @@ jobs:
         echo "🌐 Frontend URL: https://$FRONTEND_URL"
         echo "🔧 Backend API URL: https://$BACKEND_URL"
         echo "📊 Backend Swagger: https://$BACKEND_URL/swagger"
+        echo ""
+        echo "🧪 Testing URLs:"
+        
+        # Test frontend URL
+        echo -n "Frontend: "
+        if curl -s --max-time 30 --head "https://$FRONTEND_URL" > /dev/null; then
+          echo "✅ Responding"
+        else
+          echo "❌ Not responding"
+        fi
+        
+        # Test backend URL
+        echo -n "Backend: "
+        if curl -s --max-time 30 --head "https://$BACKEND_URL" > /dev/null; then
+          echo "✅ Responding"
+        else
+          echo "❌ Not responding"
+        fi
+        
+        # Test backend health endpoint (if it exists)
+        echo -n "Backend Health: "
+        if curl -s --max-time 30 "https://$BACKEND_URL/health" > /dev/null 2>&1; then
+          echo "✅ Health endpoint responding"
+        else
+          echo "⚠️ Health endpoint not available (may be normal)"
+        fi
         echo ""
         echo "🏗️ Infrastructure:"
         echo "- Resource Group: ${{ env.AZURE_RESOURCE_GROUP }}"
