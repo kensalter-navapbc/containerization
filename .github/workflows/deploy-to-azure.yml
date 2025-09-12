@@ -283,25 +283,29 @@ jobs:
             --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }}
         else
           echo "Creating new database container app..."
+          
+          # Get registry password safely
+          REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
+          
           az containerapp create \
-          --name ${{ env.DATABASE_APP_NAME }} \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
-          --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }} \
-          --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
-          --registry-username ${{ env.REGISTRY_NAME }} \
-          --registry-password $(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv) \
-          --target-port 1433 \
-          --ingress internal \
-          --min-replicas 1 \
-          --max-replicas 1 \
-          --cpu 1.0 \
-          --memory 2.0Gi \
-          --env-vars \
-            ACCEPT_EULA=Y \
-            MSSQL_SA_PASSWORD=secretref:sql-sa-password \
-            MSSQL_PID=Developer \
-          --secrets sql-sa-password=${{ secrets.SQL_SA_PASSWORD }}
+            --name ${{ env.DATABASE_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }} \
+            --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
+            --registry-username ${{ env.REGISTRY_NAME }} \
+            --registry-password "$REGISTRY_PASSWORD" \
+            --target-port 1433 \
+            --ingress internal \
+            --min-replicas 1 \
+            --max-replicas 1 \
+            --cpu 1.0 \
+            --memory 2.0Gi \
+            --env-vars \
+              ACCEPT_EULA=Y \
+              MSSQL_SA_PASSWORD=secretref:sql-sa-password \
+              MSSQL_PID=Developer \
+            --secrets sql-sa-password="${{ secrets.SQL_SA_PASSWORD }}"
         fi
 
     - name: Deploy Backend Container App
@@ -323,26 +327,30 @@ jobs:
             --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }}
         else
           echo "Creating new backend container app..."
+          
+          # Get registry password safely
+          REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
+          
           az containerapp create \
-          --name ${{ env.BACKEND_APP_NAME }} \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
-          --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }} \
-          --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
-          --registry-username ${{ env.REGISTRY_NAME }} \
-          --registry-password $(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv) \
-          --target-port 80 \
-          --ingress external \
-          --min-replicas 1 \
-          --max-replicas 3 \
-          --cpu 0.5 \
-          --memory 1.0Gi \
-          --env-vars \
-            ASPNETCORE_ENVIRONMENT=Production \
-            DOTNET_RUNNING_IN_CONTAINER=true \
-            SQL_SERVER_HOST=$DATABASE_FQDN \
-            SQL_SA_PASSWORD=secretref:sql-sa-password \
-          --secrets sql-sa-password=${{ secrets.SQL_SA_PASSWORD }}
+            --name ${{ env.BACKEND_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }} \
+            --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
+            --registry-username ${{ env.REGISTRY_NAME }} \
+            --registry-password "$REGISTRY_PASSWORD" \
+            --target-port 80 \
+            --ingress external \
+            --min-replicas 1 \
+            --max-replicas 3 \
+            --cpu 0.5 \
+            --memory 1.0Gi \
+            --env-vars \
+              ASPNETCORE_ENVIRONMENT=Production \
+              DOTNET_RUNNING_IN_CONTAINER=true \
+              SQL_SERVER_HOST=$DATABASE_FQDN \
+              SQL_SA_PASSWORD=secretref:sql-sa-password \
+            --secrets sql-sa-password="${{ secrets.SQL_SA_PASSWORD }}"
         fi
 
     - name: Deploy Frontend Container App
@@ -364,23 +372,27 @@ jobs:
             --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }}
         else
           echo "Creating new frontend container app..."
+          
+          # Get registry password safely
+          REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
+          
           az containerapp create \
-          --name ${{ env.FRONTEND_APP_NAME }} \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
-          --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }} \
-          --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
-          --registry-username ${{ env.REGISTRY_NAME }} \
-          --registry-password $(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv) \
-          --target-port 80 \
-          --ingress external \
-          --min-replicas 1 \
-          --max-replicas 3 \
-          --cpu 0.5 \
-          --memory 1.0Gi \
-          --env-vars \
-            ASPNETCORE_ENVIRONMENT=Production \
-            BACKEND_API_URL=https://$BACKEND_FQDN
+            --name ${{ env.FRONTEND_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }} \
+            --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
+            --registry-username ${{ env.REGISTRY_NAME }} \
+            --registry-password "$REGISTRY_PASSWORD" \
+            --target-port 80 \
+            --ingress external \
+            --min-replicas 1 \
+            --max-replicas 3 \
+            --cpu 0.5 \
+            --memory 1.0Gi \
+            --env-vars \
+              ASPNETCORE_ENVIRONMENT=Production \
+              BACKEND_API_URL=https://$BACKEND_FQDN
         fi
 
     - name: Display Deployment Information
