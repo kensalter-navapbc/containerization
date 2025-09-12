@@ -31,11 +31,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
+    
+    - name: Set version with Nerdbank.GitVersioning
+      uses: dotnet/nbgv@master
+      id: nbgv
     
     - name: Restore dependencies
       run: |
@@ -86,6 +92,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -127,11 +135,17 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
+    
+    - name: Set version with Nerdbank.GitVersioning
+      uses: dotnet/nbgv@master
+      id: nbgv
     
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -200,7 +214,7 @@ jobs:
       run: |
         for i in {1..30}; do
           status=$(curl --output /dev/null --silent --head --write-out "%{http_code}" http://localhost:5000/api/weather/forecast)
-          if [ "$status" = "401" ] || [ "$status" = "200" ]; then
+          if [ "$status" = "401" ] || [ "$status" = "405" ] || [ "$status" = "200" ]; then
             echo "Backend API is ready (HTTP $status)"
             break
           fi

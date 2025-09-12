@@ -23,14 +23,7 @@ on:
 #   workflow_dispatch:
 
 env:
-  AZURE_RESOURCE_GROUP: weatherapp-rg
   AZURE_LOCATION: eastus
-  CONTAINER_APPS_ENVIRONMENT: weatherapp-env
-  
-  # Container App names
-  BACKEND_APP_NAME: weatherapp-backend
-  FRONTEND_APP_NAME: weatherapp-frontend
-  DATABASE_APP_NAME: weatherapp-database
   
   # Container Registry
   REGISTRY_NAME: weatherappregistry
@@ -43,11 +36,45 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
+
+    - name: Set version with Nerdbank.GitVersioning
+      uses: dotnet/nbgv@master
+      id: nbgv
+
+    - name: Set deployment variables
+      run: |
+        echo "Setting deployment variables for ${{ github.event.inputs.environment }} environment..."
+        
+        # Set version suffix based on environment
+        if [ "${{ github.event.inputs.environment }}" == "staging" ]; then
+          VERSION_SUFFIX="-${{ steps.nbgv.outputs.SemVer2 }}"
+          echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> $GITHUB_ENV
+        else
+          VERSION_SUFFIX=""
+          echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> $GITHUB_ENV
+        fi
+        
+        # Set resource names with version suffix for staging
+        echo "AZURE_RESOURCE_GROUP=weatherapp-${{ github.event.inputs.environment }}-rg$VERSION_SUFFIX" >> $GITHUB_ENV
+        echo "CONTAINER_APPS_ENVIRONMENT=weatherapp-${{ github.event.inputs.environment }}-env$VERSION_SUFFIX" >> $GITHUB_ENV
+        echo "BACKEND_APP_NAME=weatherapp-backend-${{ github.event.inputs.environment }}$VERSION_SUFFIX" >> $GITHUB_ENV
+        echo "FRONTEND_APP_NAME=weatherapp-frontend-${{ github.event.inputs.environment }}$VERSION_SUFFIX" >> $GITHUB_ENV
+        echo "DATABASE_APP_NAME=weatherapp-database-${{ github.event.inputs.environment }}$VERSION_SUFFIX" >> $GITHUB_ENV
+        
+        # Set registry name with environment suffix
+        echo "REGISTRY_NAME=weatherappregistry${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+        
+        echo "📋 Deployment Configuration:"
+        echo "Environment: ${{ github.event.inputs.environment }}"
+        echo "Version: ${{ steps.nbgv.outputs.SemVer2 }}"
+        echo "Resource Group: weatherapp-${{ github.event.inputs.environment }}-rg$VERSION_SUFFIX"
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -88,11 +115,11 @@ jobs:
         cd database
         
         # Build and tag the database image
-        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ github.sha }} .
+        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }} .
         docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:latest .
         
         # Push the images
-        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ github.sha }}
+        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }}
         docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:latest
 
     - name: Build and Push Backend Container
@@ -131,11 +158,11 @@ jobs:
         cd Backend
         
         # Build and tag the backend image
-        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ github.sha }} .
+        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }} .
         docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:latest .
         
         # Push the images
-        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ github.sha }}
+        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }}
         docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:latest
 
     - name: Build and Push Frontend Container
@@ -178,11 +205,11 @@ jobs:
         cd frontend
         
         # Build and tag the frontend image
-        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ github.sha }} .
+        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }} .
         docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:latest .
         
         # Push the images
-        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ github.sha }}
+        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }}
         docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:latest
 
     - name: Create Container Apps Environment
@@ -210,7 +237,7 @@ jobs:
           --name ${{ env.DATABASE_APP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
-          --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:latest \
+          --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }} \
           --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
           --registry-username ${{ env.REGISTRY_NAME }} \
           --registry-password $(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv) \
@@ -240,7 +267,7 @@ jobs:
           --name ${{ env.BACKEND_APP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
-          --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:latest \
+          --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }} \
           --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
           --registry-username ${{ env.REGISTRY_NAME }} \
           --registry-password $(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv) \
@@ -271,7 +298,7 @@ jobs:
           --name ${{ env.FRONTEND_APP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
-          --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:latest \
+          --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ steps.nbgv.outputs.SemVer2 }} \
           --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
           --registry-username ${{ env.REGISTRY_NAME }} \
           --registry-password $(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv) \
@@ -291,6 +318,8 @@ jobs:
         echo ""
         echo "📋 Deployment Information:"
         echo "=========================="
+        echo "🏷️  Version: ${{ steps.nbgv.outputs.SemVer2 }}"
+        echo "🌍 Environment: ${{ github.event.inputs.environment }}"
         
         # Get application URLs
         FRONTEND_URL=$(az containerapp show \
