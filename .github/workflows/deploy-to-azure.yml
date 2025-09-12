@@ -54,9 +54,9 @@ jobs:
         
         # Set version suffix based on environment
         if [ "${{ github.event.inputs.environment }}" == "staging" ]; then
-          # Sanitize version for resource names (replace dots, dashes, and other special chars with empty string)
-          CLEAN_VERSION=$(echo "${{ steps.nbgv.outputs.SemVer2 }}" | sed 's/[^a-zA-Z0-9]//g')
-          VERSION_SUFFIX="-v$CLEAN_VERSION"
+          # Create short version hash (first 8 chars of sanitized version)
+          CLEAN_VERSION=$(echo "${{ steps.nbgv.outputs.SemVer2 }}" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-8 | tr '[:upper:]' '[:lower:]')
+          VERSION_SUFFIX="-$CLEAN_VERSION"
           echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> $GITHUB_ENV
           echo "CLEAN_VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
         else
@@ -65,12 +65,12 @@ jobs:
           echo "CLEAN_VERSION=" >> $GITHUB_ENV
         fi
         
-        # Set resource names with version suffix for staging
-        echo "AZURE_RESOURCE_GROUP=weatherapp-${{ github.event.inputs.environment }}-rg$VERSION_SUFFIX" >> $GITHUB_ENV
-        echo "CONTAINER_APPS_ENVIRONMENT=weatherapp-${{ github.event.inputs.environment }}-env$VERSION_SUFFIX" >> $GITHUB_ENV
-        echo "BACKEND_APP_NAME=weatherapp-backend-${{ github.event.inputs.environment }}$VERSION_SUFFIX" >> $GITHUB_ENV
-        echo "FRONTEND_APP_NAME=weatherapp-frontend-${{ github.event.inputs.environment }}$VERSION_SUFFIX" >> $GITHUB_ENV
-        echo "DATABASE_APP_NAME=weatherapp-database-${{ github.event.inputs.environment }}$VERSION_SUFFIX" >> $GITHUB_ENV
+        # Set resource names with version suffix for staging (keeping names under 32 chars)
+        echo "AZURE_RESOURCE_GROUP=weather-${{ github.event.inputs.environment }}-rg$VERSION_SUFFIX" >> $GITHUB_ENV
+        echo "CONTAINER_APPS_ENVIRONMENT=weather-${{ github.event.inputs.environment }}-env$VERSION_SUFFIX" >> $GITHUB_ENV
+        echo "BACKEND_APP_NAME=weather-api-${{ github.event.inputs.environment }}$VERSION_SUFFIX" >> $GITHUB_ENV
+        echo "FRONTEND_APP_NAME=weather-web-${{ github.event.inputs.environment }}$VERSION_SUFFIX" >> $GITHUB_ENV
+        echo "DATABASE_APP_NAME=weather-db-${{ github.event.inputs.environment }}$VERSION_SUFFIX" >> $GITHUB_ENV
         
         # Set registry name with environment suffix
         echo "REGISTRY_NAME=weatherappregistry${{ github.event.inputs.environment }}" >> $GITHUB_ENV
