@@ -102,22 +102,32 @@ jobs:
 
     - name: Create Azure Container Registry
       run: |
-        echo "Checking if container registry exists..."
+        echo "Checking if container registry name is available..."
         
-        # Check if registry exists
-        if az acr show --name ${{ env.REGISTRY_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
-          echo "Container registry ${{ env.REGISTRY_NAME }} already exists"
-        else
+        # Check if registry name is available globally
+        if az acr check-name --name ${{ env.REGISTRY_NAME }} --query nameAvailable -o tsv | grep -q "true"; then
           echo "Creating container registry ${{ env.REGISTRY_NAME }}..."
           az acr create \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.REGISTRY_NAME }} \
             --sku Basic \
             --admin-enabled true
+        else
+          echo "Container registry name ${{ env.REGISTRY_NAME }} is already in use"
+          # Try to find the existing registry
+          EXISTING_RG=$(az acr list --query "[?name=='${{ env.REGISTRY_NAME }}'].resourceGroup" -o tsv)
+          if [ -n "$EXISTING_RG" ]; then
+            echo "Found existing registry in resource group: $EXISTING_RG"
+            # Update the resource group environment variable to use the existing one
+            echo "AZURE_RESOURCE_GROUP=$EXISTING_RG" >> $GITHUB_ENV
+          else
+            echo "ERROR: Registry name is taken but not accessible to this subscription"
+            exit 1
+          fi
         fi
         
-        # Get registry login server
-        echo "REGISTRY_LOGIN_SERVER=$(az acr show --name ${{ env.REGISTRY_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query loginServer --output tsv)" >> $GITHUB_ENV
+        # Get registry login server (use updated resource group if changed)
+        echo "REGISTRY_LOGIN_SERVER=$(az acr show --name ${{ env.REGISTRY_NAME }} --query loginServer --output tsv)" >> $GITHUB_ENV
 
     - name: Login to Azure Container Registry
       run: |
