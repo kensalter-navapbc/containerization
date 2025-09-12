@@ -8,7 +8,7 @@ services:
     container_name: weatherapp-database
     environment:
       - ACCEPT_EULA=Y
-      - MSSQL_SA_PASSWORD=YourStrong!Passw0rd
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD}
       - MSSQL_PID=Developer
     ports:
       - "1433:1433"
@@ -17,7 +17,7 @@ services:
     networks:
       - weatherapp-network
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P YourStrong!Passw0rd -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P ${MSSQL_SA_PASSWORD} -Q 'SELECT 1' || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 5

@@ -32,7 +32,9 @@
       "Bash(pkill:*)",
       "Bash(git rm:*)",
       "Bash(mkdir:*)",
-      "Bash(docker:*)"
+      "Bash(docker:*)",
+      "Bash(export SQL_SA_PASSWORD=YourStrong1Passw0rd)",
+      "Bash(export SQL_SA_PASSWORD='$kT_v6CGfUTIY*LB')"
     ],
     "deny": []
   }
