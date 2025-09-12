@@ -1,0 +1,346 @@
+name: Deploy to Azure Container Apps
+
+# Manual trigger for now
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+# Automatic deployment on main branch push (uncomment when ready):
+# on:
+#   push:
+#     branches: [ main ]
+#     paths-ignore:
+#       - '*.md'
+#       - 'docs/**'
+#   workflow_dispatch:
+
+env:
+  AZURE_RESOURCE_GROUP: weatherapp-rg
+  AZURE_LOCATION: eastus
+  CONTAINER_APPS_ENVIRONMENT: weatherapp-env
+  
+  # Container App names
+  BACKEND_APP_NAME: weatherapp-backend
+  FRONTEND_APP_NAME: weatherapp-frontend
+  DATABASE_APP_NAME: weatherapp-database
+  
+  # Container Registry
+  REGISTRY_NAME: weatherappregistry
+  
+jobs:
+  deploy:
+    name: Deploy to Azure
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Create Resource Group
+      run: |
+        echo "Creating resource group ${{ env.AZURE_RESOURCE_GROUP }}..."
+        az group create \
+          --name ${{ env.AZURE_RESOURCE_GROUP }} \
+          --location ${{ env.AZURE_LOCATION }}
+
+    - name: Create Azure Container Registry
+      run: |
+        echo "Creating container registry..."
+        az acr create \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --name ${{ env.REGISTRY_NAME }} \
+          --sku Basic \
+          --admin-enabled true
+        
+        # Get registry login server
+        echo "REGISTRY_LOGIN_SERVER=$(az acr show --name ${{ env.REGISTRY_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query loginServer --output tsv)" >> $GITHUB_ENV
+
+    - name: Login to Azure Container Registry
+      run: |
+        az acr login --name ${{ env.REGISTRY_NAME }}
+
+    - name: Build and Push Database Container
+      run: |
+        echo "Building and pushing database container..."
+        cd database
+        
+        # Build and tag the database image
+        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ github.sha }} .
+        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:latest .
+        
+        # Push the images
+        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ github.sha }}
+        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:latest
+
+    - name: Build and Push Backend Container
+      run: |
+        echo "Building and pushing backend container..."
+        
+        # Create Dockerfile for backend
+        cat > Backend/Dockerfile << 'EOF'
+        FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+        WORKDIR /app
+        EXPOSE 80
+        EXPOSE 443
+
+        FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+        WORKDIR /src
+        COPY ["Backend.csproj", "."]
+        RUN dotnet restore "Backend.csproj"
+        COPY . .
+        WORKDIR "/src"
+        RUN dotnet build "Backend.csproj" -c Release -o /app/build
+
+        FROM build AS publish
+        RUN dotnet publish "Backend.csproj" -c Release -o /app/publish
+
+        FROM base AS final
+        WORKDIR /app
+        COPY --from=publish /app/publish .
+        
+        # Set environment variables for container detection
+        ENV DOTNET_RUNNING_IN_CONTAINER=true
+        ENV ASPNETCORE_URLS=http://+:80
+        
+        ENTRYPOINT ["dotnet", "Backend.dll"]
+        EOF
+        
+        cd Backend
+        
+        # Build and tag the backend image
+        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ github.sha }} .
+        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:latest .
+        
+        # Push the images
+        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ github.sha }}
+        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:latest
+
+    - name: Build and Push Frontend Container
+      run: |
+        echo "Building and pushing frontend container..."
+        
+        # Install frontend dependencies and build
+        cd frontend/ClientApp
+        npm ci
+        npm run build
+        cd ../..
+        
+        # Create Dockerfile for frontend (ASP.NET Core hosting Angular)
+        cat > frontend/Dockerfile << 'EOF'
+        FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+        WORKDIR /app
+        EXPOSE 80
+        EXPOSE 443
+
+        FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+        WORKDIR /src
+        COPY ["FrontEnd.csproj", "."]
+        RUN dotnet restore "FrontEnd.csproj"
+        COPY . .
+        WORKDIR "/src"
+        RUN dotnet build "FrontEnd.csproj" -c Release -o /app/build
+
+        FROM build AS publish
+        RUN dotnet publish "FrontEnd.csproj" -c Release -o /app/publish
+
+        FROM base AS final
+        WORKDIR /app
+        COPY --from=publish /app/publish .
+        
+        ENV ASPNETCORE_URLS=http://+:80
+        
+        ENTRYPOINT ["dotnet", "FrontEnd.dll"]
+        EOF
+        
+        cd frontend
+        
+        # Build and tag the frontend image
+        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ github.sha }} .
+        docker build -t ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:latest .
+        
+        # Push the images
+        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:${{ github.sha }}
+        docker push ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:latest
+
+    - name: Create Container Apps Environment
+      run: |
+        echo "Creating Container Apps environment..."
+        
+        # Check if the extension is installed
+        az extension add --name containerapp --allow-preview-versions --yes
+        
+        # Register required providers
+        az provider register --namespace Microsoft.App
+        az provider register --namespace Microsoft.OperationalInsights
+        
+        # Create the Container Apps environment
+        az containerapp env create \
+          --name ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --location ${{ env.AZURE_LOCATION }}
+
+    - name: Deploy Database Container App
+      run: |
+        echo "Deploying database container app..."
+        
+        az containerapp create \
+          --name ${{ env.DATABASE_APP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
+          --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:latest \
+          --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
+          --registry-username ${{ env.REGISTRY_NAME }} \
+          --registry-password $(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv) \
+          --target-port 1433 \
+          --ingress internal \
+          --min-replicas 1 \
+          --max-replicas 1 \
+          --cpu 1.0 \
+          --memory 2.0Gi \
+          --env-vars \
+            ACCEPT_EULA=Y \
+            MSSQL_SA_PASSWORD=secretref:sql-sa-password \
+            MSSQL_PID=Developer \
+          --secrets sql-sa-password=${{ secrets.SQL_SA_PASSWORD }}
+
+    - name: Deploy Backend Container App
+      run: |
+        echo "Deploying backend container app..."
+        
+        # Get database FQDN for connection
+        DATABASE_FQDN=$(az containerapp show \
+          --name ${{ env.DATABASE_APP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --query properties.configuration.ingress.fqdn -o tsv)
+        
+        az containerapp create \
+          --name ${{ env.BACKEND_APP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
+          --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:latest \
+          --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
+          --registry-username ${{ env.REGISTRY_NAME }} \
+          --registry-password $(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv) \
+          --target-port 80 \
+          --ingress external \
+          --min-replicas 1 \
+          --max-replicas 3 \
+          --cpu 0.5 \
+          --memory 1.0Gi \
+          --env-vars \
+            ASPNETCORE_ENVIRONMENT=Production \
+            DOTNET_RUNNING_IN_CONTAINER=true \
+            SQL_SERVER_HOST=$DATABASE_FQDN \
+            SQL_SA_PASSWORD=secretref:sql-sa-password \
+          --secrets sql-sa-password=${{ secrets.SQL_SA_PASSWORD }}
+
+    - name: Deploy Frontend Container App
+      run: |
+        echo "Deploying frontend container app..."
+        
+        # Get backend FQDN for API calls
+        BACKEND_FQDN=$(az containerapp show \
+          --name ${{ env.BACKEND_APP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --query properties.configuration.ingress.fqdn -o tsv)
+        
+        az containerapp create \
+          --name ${{ env.FRONTEND_APP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
+          --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-frontend:latest \
+          --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
+          --registry-username ${{ env.REGISTRY_NAME }} \
+          --registry-password $(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv) \
+          --target-port 80 \
+          --ingress external \
+          --min-replicas 1 \
+          --max-replicas 3 \
+          --cpu 0.5 \
+          --memory 1.0Gi \
+          --env-vars \
+            ASPNETCORE_ENVIRONMENT=Production \
+            BACKEND_API_URL=https://$BACKEND_FQDN
+
+    - name: Display Deployment Information
+      run: |
+        echo "🎉 Deployment completed successfully!"
+        echo ""
+        echo "📋 Deployment Information:"
+        echo "=========================="
+        
+        # Get application URLs
+        FRONTEND_URL=$(az containerapp show \
+          --name ${{ env.FRONTEND_APP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --query properties.configuration.ingress.fqdn -o tsv)
+        
+        BACKEND_URL=$(az containerapp show \
+          --name ${{ env.BACKEND_APP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --query properties.configuration.ingress.fqdn -o tsv)
+        
+        echo "🌐 Frontend URL: https://$FRONTEND_URL"
+        echo "🔧 Backend API URL: https://$BACKEND_URL"
+        echo "📊 Backend Swagger: https://$BACKEND_URL/swagger"
+        echo ""
+        echo "🏗️ Infrastructure:"
+        echo "- Resource Group: ${{ env.AZURE_RESOURCE_GROUP }}"
+        echo "- Location: ${{ env.AZURE_LOCATION }}"
+        echo "- Container Apps Environment: ${{ env.CONTAINER_APPS_ENVIRONMENT }}"
+        echo "- Container Registry: ${{ env.REGISTRY_NAME }}"
+        echo ""
+        echo "🐳 Container Apps:"
+        echo "- Database: ${{ env.DATABASE_APP_NAME }}"
+        echo "- Backend: ${{ env.BACKEND_APP_NAME }}"
+        echo "- Frontend: ${{ env.FRONTEND_APP_NAME }}"
+
+    - name: Update Environment Variables (if needed)
+      run: |
+        echo "Updating container apps with correct service discovery..."
+        
+        # Get FQDNs for internal communication
+        DATABASE_FQDN=$(az containerapp show \
+          --name ${{ env.DATABASE_APP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --query properties.configuration.ingress.fqdn -o tsv)
+        
+        BACKEND_FQDN=$(az containerapp show \
+          --name ${{ env.BACKEND_APP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --query properties.configuration.ingress.fqdn -o tsv)
+        
+        # Update backend with database connection
+        az containerapp update \
+          --name ${{ env.BACKEND_APP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --replace-env-vars \
+            ASPNETCORE_ENVIRONMENT=Production \
+            DOTNET_RUNNING_IN_CONTAINER=true \
+            SQL_SERVER_HOST=$DATABASE_FQDN \
+            SQL_SA_PASSWORD=secretref:sql-sa-password
+        
+        echo "✅ Service discovery configured successfully!"
