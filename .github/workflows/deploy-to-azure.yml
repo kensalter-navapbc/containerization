@@ -432,24 +432,14 @@ jobs:
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --query properties.configuration.ingress.fqdn -o tsv)
         
-        # Check if container app exists and update or create accordingly
+        # Check if container app exists and delete it to recreate fresh (avoids secret ref issues)
         if az containerapp show --name ${{ env.BACKEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
-          echo "Updating existing backend container app..."
-          az containerapp update \
-            --name ${{ env.BACKEND_APP_NAME }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-backend:${{ steps.nbgv.outputs.SemVer2 }} \
-            --set-env-vars \
-              ASPNETCORE_ENVIRONMENT=Production \
-              DOTNET_RUNNING_IN_CONTAINER=true \
-              SQL_SERVER_HOST=$DATABASE_FQDN \
-              SQL_SA_PASSWORD="${{ secrets.SQL_SA_PASSWORD }}" \
-              STARTUP_DELAY_SECONDS=30 \
-              DEBUG_NETWORK=true
-        else
-          echo "Creating new backend container app..."
-          
-          # Debug: Check if the secret is being passed correctly
+          echo "Deleting existing backend container app to recreate with new configuration..."
+          az containerapp delete --name ${{ env.BACKEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --yes
+        fi
+        
+        
+        # Debug: Check if the secret is being passed correctly
           echo "Secret value length: $(echo '${{ secrets.SQL_SA_PASSWORD }}' | wc -c)"
           echo "Secret starts with: $(echo '${{ secrets.SQL_SA_PASSWORD }}' | head -c 10)..."
           
