@@ -419,8 +419,7 @@ jobs:
               MSSQL_SA_PASSWORD=secretref:sql-sa-password \
               MSSQL_PID=Developer \
             --secrets sql-sa-password="${{ secrets.SQL_SA_PASSWORD }}"
-          echo "✅ Database container app created successfully"
-        fi
+        echo "✅ Database container app created successfully"
 
     - name: Deploy Backend Container App
       run: |
