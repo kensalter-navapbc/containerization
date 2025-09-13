@@ -154,6 +154,9 @@ jobs:
     - name: Build and Push Database Container
       run: |
         echo "Building and pushing database container..."
+        echo "Current version: ${{ steps.nbgv.outputs.SemVer2 }}"
+        echo "Registry server: ${{ env.REGISTRY_LOGIN_SERVER }}"
+        echo "Expected image: ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }}"
         cd database
         
         # Build and tag the database image
@@ -378,28 +381,25 @@ jobs:
         echo "Environment: ${{ env.CONTAINER_APPS_ENVIRONMENT }}"
         echo "Image: ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }}"
         
-        # Check if container app exists and update or create accordingly
+        # Check if container app exists and delete it to recreate fresh (ensures proper registry auth)
         if az containerapp show --name ${{ env.DATABASE_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
-          echo "Updating existing database container app..."
-          az containerapp update \
-            --name ${{ env.DATABASE_APP_NAME }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }}
-          echo "✅ Database container app updated"
-        else
-          echo "Creating new database container app..."
-          
-          # Get registry password safely
-          echo "Getting registry credentials..."
-          REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
-          if [ -z "$REGISTRY_PASSWORD" ]; then
-            echo "ERROR: Could not get registry password"
-            exit 1
-          fi
-          echo "✅ Registry credentials obtained"
-          
-          echo "Creating container app..."
-          az containerapp create \
+          echo "Deleting existing database container app to recreate with fresh configuration..."
+          az containerapp delete --name ${{ env.DATABASE_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --yes
+        fi
+        
+        echo "Creating new database container app..."
+        
+        # Get registry password safely
+        echo "Getting registry credentials..."
+        REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
+        if [ -z "$REGISTRY_PASSWORD" ]; then
+          echo "ERROR: Could not get registry password"
+          exit 1
+        fi
+        echo "✅ Registry credentials obtained"
+        
+        echo "Creating container app..."
+        az containerapp create \
             --name ${{ env.DATABASE_APP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
