@@ -654,6 +654,6 @@ jobs:
             ASPNETCORE_ENVIRONMENT=Production \
             DOTNET_RUNNING_IN_CONTAINER=true \
             SQL_SERVER_HOST=$DATABASE_FQDN \
-            SQL_SA_PASSWORD=secretref:sql-sa-password
+            SQL_SA_PASSWORD="${{ secrets.SQL_SA_PASSWORD }}"
         
         echo "✅ Service discovery configured successfully!"
