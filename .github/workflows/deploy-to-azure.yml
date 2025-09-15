@@ -350,9 +350,9 @@ jobs:
         
         echo "✅ All required images are available in the registry"
 
-    - name: Create Container Apps Environment
+    - name: Create VNet and Container Apps Environment
       run: |
-        echo "Checking if Container Apps environment exists..."
+        echo "Setting up networking for Container Apps..."
         
         # Check if the extension is installed
         az extension add --name containerapp --upgrade
@@ -360,17 +360,61 @@ jobs:
         # Register required providers
         az provider register --namespace Microsoft.App
         az provider register --namespace Microsoft.OperationalInsights
+        az provider register --namespace Microsoft.Network
         
-        # Check if environment exists
+        # Set VNet names
+        VNET_NAME="weather-${{ github.event.inputs.environment }}-vnet${{ env.VERSION_SUFFIX }}"
+        SUBNET_NAME="containerapp-subnet"
+        
+        echo "VNet name: $VNET_NAME"
+        echo "Subnet name: $SUBNET_NAME"
+        
+        # Create VNet if it doesn't exist
+        if az network vnet show --name $VNET_NAME --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
+          echo "VNet $VNET_NAME already exists"
+        else
+          echo "Creating VNet $VNET_NAME..."
+          az network vnet create \
+            --name $VNET_NAME \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --location ${{ env.AZURE_LOCATION }} \
+            --address-prefix 10.0.0.0/16
+        fi
+        
+        # Create subnet if it doesn't exist
+        if az network vnet subnet show --name $SUBNET_NAME --vnet-name $VNET_NAME --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
+          echo "Subnet $SUBNET_NAME already exists"
+        else
+          echo "Creating subnet $SUBNET_NAME..."
+          az network vnet subnet create \
+            --name $SUBNET_NAME \
+            --vnet-name $VNET_NAME \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --address-prefix 10.0.0.0/23
+        fi
+        
+        # Get subnet ID for Container Apps environment
+        SUBNET_ID=$(az network vnet subnet show \
+          --name $SUBNET_NAME \
+          --vnet-name $VNET_NAME \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --query id -o tsv)
+        
+        echo "Subnet ID: $SUBNET_ID"
+        echo "SUBNET_ID=$SUBNET_ID" >> $GITHUB_ENV
+        
+        # Check if Container Apps environment exists
         if az containerapp env show --name ${{ env.CONTAINER_APPS_ENVIRONMENT }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
           echo "Container Apps environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} already exists"
         else
-          echo "Creating Container Apps environment..."
-          # Create the Container Apps environment
+          echo "Creating Container Apps environment with VNet integration..."
           az containerapp env create \
             --name ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --location ${{ env.AZURE_LOCATION }}
+            --location ${{ env.AZURE_LOCATION }} \
+            --infrastructure-subnet-resource-id $SUBNET_ID \
+            --internal-only false
+          echo "✅ Container Apps environment created with VNet integration"
         fi
 
     - name: Deploy Database Container App
