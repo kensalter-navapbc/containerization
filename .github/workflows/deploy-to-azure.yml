@@ -384,13 +384,29 @@ jobs:
         # Create subnet if it doesn't exist
         if az network vnet subnet show --name $SUBNET_NAME --vnet-name $VNET_NAME --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
           echo "Subnet $SUBNET_NAME already exists"
+          # Check if delegation is set, update if needed
+          DELEGATION=$(az network vnet subnet show \
+            --name $SUBNET_NAME \
+            --vnet-name $VNET_NAME \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query 'delegations[0].serviceName' -o tsv 2>/dev/null || echo "")
+          
+          if [ "$DELEGATION" != "Microsoft.App/environments" ]; then
+            echo "Adding delegation to existing subnet..."
+            az network vnet subnet update \
+              --name $SUBNET_NAME \
+              --vnet-name $VNET_NAME \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --delegations Microsoft.App/environments
+          fi
         else
-          echo "Creating subnet $SUBNET_NAME..."
+          echo "Creating subnet $SUBNET_NAME with Container Apps delegation..."
           az network vnet subnet create \
             --name $SUBNET_NAME \
             --vnet-name $VNET_NAME \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --address-prefix 10.0.0.0/23
+            --address-prefix 10.0.0.0/23 \
+            --delegations Microsoft.App/environments
         fi
         
         # Get subnet ID for Container Apps environment
