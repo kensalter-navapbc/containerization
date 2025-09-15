@@ -459,27 +459,104 @@ jobs:
         echo "✅ Registry credentials obtained"
         
         echo "Creating container app..."
+        # Try using the base SQL Server image instead of our custom one for troubleshooting
+        echo "Using base Azure SQL Edge image for better compatibility with Container Apps..."
         az containerapp create \
             --name ${{ env.DATABASE_APP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
-            --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }} \
-            --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
-            --registry-username ${{ env.REGISTRY_NAME }} \
-            --registry-password "$REGISTRY_PASSWORD" \
+            --image mcr.microsoft.com/azure-sql-edge:latest \
             --target-port 1433 \
             --ingress internal \
             --transport tcp \
             --min-replicas 1 \
             --max-replicas 1 \
-            --cpu 1.0 \
-            --memory 2.0Gi \
+            --cpu 2.0 \
+            --memory 4.0Gi \
             --env-vars \
               ACCEPT_EULA=Y \
               MSSQL_SA_PASSWORD=secretref:sql-sa-password \
               MSSQL_PID=Developer \
             --secrets sql-sa-password="${{ secrets.SQL_SA_PASSWORD }}"
         echo "✅ Database container app created successfully"
+
+    - name: Initialize Database Schema
+      run: |
+        echo "Waiting for database container to be ready and initializing schema..."
+        
+        # Wait for database container to be running
+        echo "Waiting for database container to be ready..."
+        for i in {1..60}; do
+          DB_STATUS=$(az containerapp show --name ${{ env.DATABASE_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.runningStatus" -o tsv 2>/dev/null || echo "ERROR")
+          if [ "$DB_STATUS" = "Running" ]; then
+            echo "✅ Database container is running"
+            break
+          fi
+          echo "Attempt $i/60 - Database status: $DB_STATUS"
+          sleep 10
+        done
+        
+        if [ "$DB_STATUS" != "Running" ]; then
+          echo "❌ Database container failed to start"
+          az containerapp logs show --name ${{ env.DATABASE_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --tail 50 || echo "Could not get logs"
+          exit 1
+        fi
+        
+        # Get database FQDN for connection
+        DATABASE_FQDN=$(az containerapp show \
+          --name ${{ env.DATABASE_APP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --query properties.configuration.ingress.fqdn -o tsv)
+        
+        echo "Database FQDN: $DATABASE_FQDN"
+        
+        # Create a temporary container to run database initialization
+        echo "Creating temporary container to initialize database..."
+        
+        # Create initialization script
+        cat > init-db.sql << 'EOF'
+        -- Create the WeatherApp database
+        USE master;
+        
+        IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'WeatherApp')
+        BEGIN
+            CREATE DATABASE WeatherApp;
+        END
+        
+        USE WeatherApp;
+        
+        -- Create WeatherForecast table if it doesn't exist
+        IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='WeatherForecast' AND xtype='U')
+        BEGIN
+            CREATE TABLE WeatherForecast (
+                Id int IDENTITY(1,1) PRIMARY KEY,
+                Date datetime2 NOT NULL,
+                TemperatureC int NOT NULL,
+                Summary nvarchar(max) NULL
+            );
+        END
+        
+        PRINT 'Database and table created successfully.';
+        EOF
+        
+        # Use Azure Container Instances to run a temporary SQL client
+        echo "Running database initialization via temporary container..."
+        az container create \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --name db-init-${{ env.CLEAN_VERSION }} \
+          --image mcr.microsoft.com/mssql-tools \
+          --restart-policy Never \
+          --command-line "/bin/bash -c 'echo \"$(<init-db.sql)\" | /opt/mssql-tools/bin/sqlcmd -S $DATABASE_FQDN,1433 -U SA -P \"${{ secrets.SQL_SA_PASSWORD }}\" && echo \"Database initialization completed!\"'" \
+          --no-wait
+        
+        # Wait for the initialization to complete
+        echo "Waiting for database initialization to complete..."
+        sleep 30
+        
+        # Clean up the temporary container
+        az container delete --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name db-init-${{ env.CLEAN_VERSION }} --yes || echo "Cleanup container may have already been removed"
+        
+        echo "✅ Database schema initialization completed"
 
     - name: Deploy Backend Container App
       run: |
