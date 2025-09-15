@@ -267,6 +267,13 @@ jobs:
         
         cd ../..
         
+        # Temporarily disable the PublishRunWebpack target for container build
+        cp frontend/FrontEnd.csproj frontend/FrontEnd.csproj.backup
+        sed -i 's/<Target Name="PublishRunWebpack"/<Target Name="PublishRunWebpack" Condition="false"/g' frontend/FrontEnd.csproj
+        
+        echo "Modified project file to disable npm build:"
+        grep -A 5 "PublishRunWebpack" frontend/FrontEnd.csproj || echo "Target not found"
+        
         # Create Dockerfile for frontend with manual file copying approach
         cat > frontend/Dockerfile << 'EOF'
         FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
@@ -284,8 +291,8 @@ jobs:
         RUN dotnet build "FrontEnd.csproj" -c Release -o /app/build
 
         FROM build AS publish
-        # Publish without Angular build (we'll copy pre-built files)
-        RUN dotnet publish "FrontEnd.csproj" -c Release -o /app/publish -p:SkipNodeModulesPublish=true
+        # Publish without Angular build (PublishRunWebpack target disabled)
+        RUN dotnet publish "FrontEnd.csproj" -c Release -o /app/publish
 
         FROM base AS final
         WORKDIR /app
@@ -327,6 +334,9 @@ jobs:
           exit 1
         fi
         echo "✅ Frontend latest image pushed successfully"
+        
+        # Restore original project file
+        mv FrontEnd.csproj.backup FrontEnd.csproj
 
     - name: Verify Container Images Exist
       run: |
