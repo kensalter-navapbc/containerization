@@ -271,6 +271,11 @@ jobs:
         FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
         WORKDIR /src
 
+        # Install Node.js for the Angular build process
+        RUN apt-get update && apt-get install -y curl
+        RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+        RUN apt-get install -y nodejs
+
         COPY ["FrontEnd.csproj", "."]
         RUN dotnet restore "FrontEnd.csproj"
         COPY . .
@@ -284,8 +289,7 @@ jobs:
         WORKDIR /app
         COPY --from=publish /app/publish .
         
-        # Copy Angular dist files to the correct location that ASP.NET Core expects
-        COPY ["ClientApp/dist/client-app/", "/app/ClientApp/dist/client-app/"]
+        # Angular files are automatically included by the MSBuild PublishRunWebpack target
         
         ENV ASPNETCORE_URLS=http://+:80
         
