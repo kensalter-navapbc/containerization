@@ -438,7 +438,8 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --location ${{ env.AZURE_LOCATION }} \
             --infrastructure-subnet-resource-id $SUBNET_ID \
-            --internal-only false
+            --internal-only false \
+            --enable-workload-profiles false
           echo "✅ Container Apps environment created with VNet integration"
         fi
 
@@ -639,7 +640,7 @@ jobs:
             --memory 1.0Gi \
             --env-vars \
               ASPNETCORE_ENVIRONMENT=Production \
-              BACKEND_API_URL=https://$BACKEND_FQDN
+              BackendApiUrl=https://$BACKEND_FQDN
         echo "✅ Frontend container app created successfully"
 
     - name: Verify Container Apps Health

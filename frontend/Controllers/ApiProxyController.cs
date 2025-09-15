@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace FrontEnd.Controllers;
 
 [ApiController]
-[Route("{*catchAll}")]
+[Route("api/{*catchAll}")]
 public class ApiProxyController : ControllerBase
 {
     private readonly HttpClient _httpClient;
