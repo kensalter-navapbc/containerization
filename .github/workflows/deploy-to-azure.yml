@@ -468,13 +468,16 @@ jobs:
         echo "✅ Registry credentials obtained"
         
         echo "Creating container app..."
-        # Try using the base SQL Server image instead of our custom one for troubleshooting
-        echo "Using base Azure SQL Edge image for better compatibility with Container Apps..."
+        # Use our custom database image that creates the WeatherApp database
+        echo "Using custom database image that includes database initialization..."
         az containerapp create \
             --name ${{ env.DATABASE_APP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
-            --image mcr.microsoft.com/azure-sql-edge:latest \
+            --image ${{ env.REGISTRY_LOGIN_SERVER }}/weatherapp-database:${{ steps.nbgv.outputs.SemVer2 }} \
+            --registry-server ${{ env.REGISTRY_LOGIN_SERVER }} \
+            --registry-username ${{ env.REGISTRY_NAME }} \
+            --registry-password "$REGISTRY_PASSWORD" \
             --target-port 1433 \
             --ingress internal \
             --transport tcp \
