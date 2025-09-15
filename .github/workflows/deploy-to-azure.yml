@@ -684,7 +684,8 @@ jobs:
             --memory 1.0Gi \
             --env-vars \
               ASPNETCORE_ENVIRONMENT=Development \
-              BackendApiUrl=https://$BACKEND_FQDN
+              BackendApiUrl=https://$BACKEND_FQDN \
+              USE_SPA_STATIC_FILES=true
         echo "✅ Frontend container app created successfully"
 
     - name: Verify Container Apps Health

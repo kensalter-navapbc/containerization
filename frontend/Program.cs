@@ -46,7 +46,9 @@ app.UseSpa(spa =>
 {
     spa.Options.SourcePath = "ClientApp";
 
-    if (app.Environment.IsDevelopment())
+    // Only use proxy in development when not running in container
+    var useSpaStaticFiles = Environment.GetEnvironmentVariable("USE_SPA_STATIC_FILES") == "true";
+    if (app.Environment.IsDevelopment() && !useSpaStaticFiles)
     {
         spa.UseProxyToSpaDevelopmentServer("http://localhost:4200");
     }
