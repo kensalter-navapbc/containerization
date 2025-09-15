@@ -259,9 +259,15 @@ jobs:
         cd frontend/ClientApp
         npm install
         npm run build
+        
+        # Verify Angular build output
+        echo "Checking Angular build output..."
+        ls -la dist/client-app/ || echo "Angular build failed - no dist/client-app directory"
+        ls -la dist/client-app/index.html || echo "No index.html found in Angular build"
+        
         cd ../..
         
-        # Create Dockerfile for frontend that uses pre-built Angular files
+        # Create Dockerfile for frontend with manual file copying approach
         cat > frontend/Dockerfile << 'EOF'
         FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
         WORKDIR /app
@@ -271,11 +277,6 @@ jobs:
         FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
         WORKDIR /src
 
-        # Install Node.js for the Angular build process
-        RUN apt-get update && apt-get install -y curl
-        RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-        RUN apt-get install -y nodejs
-
         COPY ["FrontEnd.csproj", "."]
         RUN dotnet restore "FrontEnd.csproj"
         COPY . .
@@ -283,13 +284,18 @@ jobs:
         RUN dotnet build "FrontEnd.csproj" -c Release -o /app/build
 
         FROM build AS publish
-        RUN dotnet publish "FrontEnd.csproj" -c Release -o /app/publish
+        # Publish without Angular build (we'll copy pre-built files)
+        RUN dotnet publish "FrontEnd.csproj" -c Release -o /app/publish -p:SkipNodeModulesPublish=true
 
         FROM base AS final
         WORKDIR /app
         COPY --from=publish /app/publish .
         
-        # Angular files are automatically included by the MSBuild PublishRunWebpack target
+        # Copy pre-built Angular files from GitHub Actions build step
+        COPY ["ClientApp/dist/client-app/", "/app/ClientApp/dist/client-app/"]
+        
+        # Verify files are copied correctly
+        RUN ls -la /app/ClientApp/dist/client-app/ || echo "Angular files not found"
         
         ENV ASPNETCORE_URLS=http://+:80
         
@@ -623,7 +629,7 @@ jobs:
             --cpu 0.5 \
             --memory 1.0Gi \
             --env-vars \
-              ASPNETCORE_ENVIRONMENT=Production \
+              ASPNETCORE_ENVIRONMENT=Development \
               DOTNET_RUNNING_IN_CONTAINER=true \
               SQL_SERVER_HOST=$DATABASE_HOST \
               SQL_SA_PASSWORD="${{ secrets.SQL_SA_PASSWORD }}" \
@@ -667,7 +673,7 @@ jobs:
             --cpu 0.5 \
             --memory 1.0Gi \
             --env-vars \
-              ASPNETCORE_ENVIRONMENT=Production \
+              ASPNETCORE_ENVIRONMENT=Development \
               BackendApiUrl=https://$BACKEND_FQDN
         echo "✅ Frontend container app created successfully"
 
@@ -810,7 +816,7 @@ jobs:
           --name ${{ env.BACKEND_APP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --replace-env-vars \
-            ASPNETCORE_ENVIRONMENT=Production \
+            ASPNETCORE_ENVIRONMENT=Development \
             DOTNET_RUNNING_IN_CONTAINER=true \
             SQL_SERVER_HOST=$DATABASE_HOST \
             SQL_SA_PASSWORD="${{ secrets.SQL_SA_PASSWORD }}"
