@@ -441,14 +441,32 @@ jobs:
           echo "Container Apps environment ${{ env.CONTAINER_APPS_ENVIRONMENT }} already exists"
         else
           echo "Creating Container Apps environment with VNet integration..."
-          az containerapp env create \
-            --name ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
+          echo "Subnet ID: $SUBNET_ID"
+          
+          # Verify subnet delegation is correct
+          DELEGATION_SERVICE=$(az network vnet subnet show \
+            --name $SUBNET_NAME \
+            --vnet-name $VNET_NAME \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --location ${{ env.AZURE_LOCATION }} \
-            --infrastructure-subnet-resource-id $SUBNET_ID \
-            --internal-only false \
-            --enable-workload-profiles false
-          echo "✅ Container Apps environment created with VNet integration"
+            --query 'delegations[0].serviceName' -o tsv 2>/dev/null || echo "")
+          
+          echo "Current subnet delegation: $DELEGATION_SERVICE"
+          
+          if [ "$DELEGATION_SERVICE" = "Microsoft.App/environments" ]; then
+            echo "Subnet is properly delegated for Container Apps"
+            
+            # Create Container Apps environment with proper VNet integration
+            az containerapp env create \
+              --name ${{ env.CONTAINER_APPS_ENVIRONMENT }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --location ${{ env.AZURE_LOCATION }} \
+              --infrastructure-subnet-resource-id $SUBNET_ID \
+              --internal-only false
+            echo "✅ Container Apps environment created with VNet integration"
+          else
+            echo "❌ Subnet delegation is incorrect. Expected: Microsoft.App/environments, Got: $DELEGATION_SERVICE"
+            exit 1
+          fi
         fi
 
     - name: Deploy Database Container App
