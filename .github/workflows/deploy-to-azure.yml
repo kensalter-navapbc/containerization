@@ -561,12 +561,9 @@ jobs:
       run: |
         echo "Deploying backend container app..."
         
-        # For internal TCP, try using the container name directly instead of FQDN
-        # DATABASE_FQDN=$(az containerapp show \
-        #   --name ${{ env.DATABASE_APP_NAME }} \
-        #   --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-        #   --query properties.configuration.ingress.fqdn -o tsv)
-        DATABASE_FQDN=${{ env.DATABASE_APP_NAME }}
+        # For internal TCP in Container Apps with VNet, use the simple container app name
+        DATABASE_HOST=${{ env.DATABASE_APP_NAME }}
+        echo "Using database host: $DATABASE_HOST"
         
         # Check if container app exists and delete it to recreate fresh (avoids secret ref issues)
         if az containerapp show --name ${{ env.BACKEND_APP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
@@ -599,7 +596,7 @@ jobs:
             --env-vars \
               ASPNETCORE_ENVIRONMENT=Production \
               DOTNET_RUNNING_IN_CONTAINER=true \
-              SQL_SERVER_HOST=$DATABASE_FQDN \
+              SQL_SERVER_HOST=$DATABASE_HOST \
               SQL_SA_PASSWORD="${{ secrets.SQL_SA_PASSWORD }}" \
               STARTUP_DELAY_SECONDS=30 \
               DEBUG_NETWORK=true
@@ -771,25 +768,22 @@ jobs:
       run: |
         echo "Updating container apps with correct service discovery..."
         
-        # Get FQDNs for internal communication
-        DATABASE_FQDN=$(az containerapp show \
-          --name ${{ env.DATABASE_APP_NAME }} \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --query properties.configuration.ingress.fqdn -o tsv)
+        # For Container Apps with VNet integration, use simple hostnames for internal communication
+        DATABASE_HOST=${{ env.DATABASE_APP_NAME }}
         
         BACKEND_FQDN=$(az containerapp show \
           --name ${{ env.BACKEND_APP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --query properties.configuration.ingress.fqdn -o tsv)
         
-        # Update backend with database connection
+        # Update backend with database connection using simple hostname
         az containerapp update \
           --name ${{ env.BACKEND_APP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
           --replace-env-vars \
             ASPNETCORE_ENVIRONMENT=Production \
             DOTNET_RUNNING_IN_CONTAINER=true \
-            SQL_SERVER_HOST=$DATABASE_FQDN \
+            SQL_SERVER_HOST=$DATABASE_HOST \
             SQL_SA_PASSWORD="${{ secrets.SQL_SA_PASSWORD }}"
         
         echo "✅ Service discovery configured successfully!"
