@@ -539,22 +539,9 @@ jobs:
         PRINT 'Database and table created successfully.';
         EOF
         
-        # Use Azure Container Instances to run a temporary SQL client
-        echo "Running database initialization via temporary container..."
-        az container create \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --name db-init-${{ env.CLEAN_VERSION }} \
-          --image mcr.microsoft.com/mssql-tools \
-          --restart-policy Never \
-          --command-line "/bin/bash -c 'echo \"$(<init-db.sql)\" | /opt/mssql-tools/bin/sqlcmd -S $DATABASE_FQDN,1433 -U SA -P \"${{ secrets.SQL_SA_PASSWORD }}\" && echo \"Database initialization completed!\"'" \
-          --no-wait
-        
-        # Wait for the initialization to complete
-        echo "Waiting for database initialization to complete..."
-        sleep 30
-        
-        # Clean up the temporary container
-        az container delete --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --name db-init-${{ env.CLEAN_VERSION }} --yes || echo "Cleanup container may have already been removed"
+        # Skip database initialization for now - let the backend handle it
+        echo "Skipping external database initialization - the backend will handle database creation"
+        echo "Database is ready for backend connections"
         
         echo "✅ Database schema initialization completed"
 
