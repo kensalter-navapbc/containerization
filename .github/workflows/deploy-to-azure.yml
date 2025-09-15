@@ -367,9 +367,17 @@ jobs:
         az extension add --name containerapp --upgrade
         
         # Register required providers
-        az provider register --namespace Microsoft.App
-        az provider register --namespace Microsoft.OperationalInsights
-        az provider register --namespace Microsoft.Network
+        echo "Registering required Azure resource providers..."
+        az provider register --namespace Microsoft.App --wait
+        az provider register --namespace Microsoft.ContainerService --wait
+        az provider register --namespace Microsoft.OperationalInsights --wait
+        az provider register --namespace Microsoft.Network --wait
+        
+        echo "Checking provider registration status..."
+        az provider show --namespace Microsoft.App --query "registrationState" -o tsv
+        az provider show --namespace Microsoft.ContainerService --query "registrationState" -o tsv
+        az provider show --namespace Microsoft.OperationalInsights --query "registrationState" -o tsv
+        az provider show --namespace Microsoft.Network --query "registrationState" -o tsv
         
         # Set VNet names
         VNET_NAME="weather-${{ github.event.inputs.environment }}-vnet${{ env.VERSION_SUFFIX }}"
