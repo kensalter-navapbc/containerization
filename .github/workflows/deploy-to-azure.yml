@@ -460,7 +460,7 @@ jobs:
         
         # Get registry password safely
         echo "Getting registry credentials..."
-        REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
+        REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query "passwords[0].value" -o tsv)
         if [ -z "$REGISTRY_PASSWORD" ]; then
           echo "ERROR: Could not get registry password"
           exit 1
@@ -577,7 +577,7 @@ jobs:
         echo "Secret starts with: $(echo '${{ secrets.SQL_SA_PASSWORD }}' | head -c 10)..."
         
         # Get registry password safely
-        REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
+        REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query "passwords[0].value" -o tsv)
         
         az containerapp create \
             --name ${{ env.BACKEND_APP_NAME }} \
@@ -621,7 +621,7 @@ jobs:
         echo "Creating new frontend container app..."
         
         # Get registry password safely
-        REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query passwords[0].value -o tsv)
+        REGISTRY_PASSWORD=$(az acr credential show --name ${{ env.REGISTRY_NAME }} --query "passwords[0].value" -o tsv)
         
         az containerapp create \
             --name ${{ env.FRONTEND_APP_NAME }} \
