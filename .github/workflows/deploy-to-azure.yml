@@ -262,8 +262,13 @@ jobs:
         
         # Verify Angular build output
         echo "Checking Angular build output..."
+        ls -la dist/ || echo "No dist directory"
         ls -la dist/client-app/ || echo "Angular build failed - no dist/client-app directory"
         ls -la dist/client-app/index.html || echo "No index.html found in Angular build"
+        echo "Content of dist/client-app:"
+        find dist/client-app -type f | head -10 || echo "No files found"
+        echo "Checking browser subdirectory:"
+        ls -la dist/client-app/browser/ || echo "No browser directory"
         
         cd ../..
         
@@ -298,11 +303,17 @@ jobs:
         WORKDIR /app
         COPY --from=publish /app/publish .
         
-        # Copy pre-built Angular files from GitHub Actions build step
-        COPY ["ClientApp/dist/client-app/", "/app/ClientApp/dist/client-app/"]
+        # Copy pre-built Angular files from GitHub Actions build step (Angular 17 uses browser subdirectory)
+        COPY ["ClientApp/dist/client-app/browser/", "/app/ClientApp/dist/client-app/browser/"]
         
         # Verify files are copied correctly
-        RUN ls -la /app/ClientApp/dist/client-app/ || echo "Angular files not found"
+        RUN echo "Checking copied Angular files..." && \
+            ls -la /app/ClientApp/ || echo "No ClientApp directory" && \
+            ls -la /app/ClientApp/dist/ || echo "No dist directory" && \
+            ls -la /app/ClientApp/dist/client-app/ || echo "No client-app directory" && \
+            ls -la /app/ClientApp/dist/client-app/browser/ || echo "No browser directory" && \
+            ls -la /app/ClientApp/dist/client-app/browser/index.html || echo "No index.html found" && \
+            find /app/ClientApp/dist/client-app/browser -name "*.html" || echo "No HTML files found"
         
         ENV ASPNETCORE_URLS=http://+:80
         

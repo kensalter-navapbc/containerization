@@ -9,7 +9,7 @@ builder.Services.AddHttpClient();
 // In production, the Angular files will be served from this directory
 builder.Services.AddSpaStaticFiles(configuration =>
 {
-    configuration.RootPath = "ClientApp/dist/client-app";
+    configuration.RootPath = "ClientApp/dist/client-app/browser";
 });
 
 var app = builder.Build();
