@@ -138,12 +138,21 @@ jobs:
           fi
         fi
         
-        # Get registry login server
-        REGISTRY_SERVER=$(az acr show --name ${{ env.REGISTRY_NAME }} --query loginServer --output tsv 2>/dev/null || echo "")
+        # Get registry login server (try current resource group first, then search all accessible registries)
+        REGISTRY_SERVER=$(az acr show --name ${{ env.REGISTRY_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query loginServer --output tsv 2>/dev/null || echo "")
+        
         if [ -z "$REGISTRY_SERVER" ]; then
-          echo "ERROR: Could not get registry login server"
+          echo "Registry not found in current resource group, searching all accessible registries..."
+          REGISTRY_SERVER=$(az acr show --name ${{ env.REGISTRY_NAME }} --query loginServer --output tsv 2>/dev/null || echo "")
+        fi
+        
+        if [ -z "$REGISTRY_SERVER" ]; then
+          echo "ERROR: Could not get registry login server for ${{ env.REGISTRY_NAME }}"
+          echo "Available registries:"
+          az acr list --query "[].{name:name, resourceGroup:resourceGroup, loginServer:loginServer}" -o table
           exit 1
         fi
+        
         echo "REGISTRY_LOGIN_SERVER=$REGISTRY_SERVER" >> $GITHUB_ENV
         echo "Registry login server: $REGISTRY_SERVER"
 
